@@ -21,7 +21,7 @@ def build_menu_embed() -> discord.Embed:
     )
     embed.add_field(
         name="Какие ссылки подходят",
-        value="YouTube · Google Диск · Rutube · прямая ссылка. Видео качается на сервер (до ~2 ГБ) и смотрится там по кадрам."
+        value="YouTube, Google Disk, Rutube или прямая ссылка. Видео качается на сервер (до 2 ГБ).",
         inline=False,
     )
     embed.add_field(
