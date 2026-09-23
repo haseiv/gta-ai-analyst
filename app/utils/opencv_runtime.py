@@ -26,9 +26,11 @@ def _run(command: list[str]) -> int:
     env = os.environ.copy()
     env.setdefault("DEBIAN_FRONTEND", "noninteractive")
     completed = subprocess.run(command, check=False, capture_output=True, text=True, env=env)
+    tail = (completed.stderr or completed.stdout or "").strip()[-800:]
     if completed.returncode != 0:
-        tail = (completed.stderr or completed.stdout or "").strip()[-500:]
-        logger.warning("command failed (%s): %s", " ".join(command), tail)
+        logger.warning("command failed rc=%s (%s): %s", completed.returncode, " ".join(command), tail)
+    elif tail:
+        logger.info("command ok (%s): %s", command[-1], tail[-200:])
     return completed.returncode
 
 
@@ -49,12 +51,13 @@ def _install_system_libs() -> None:
 
 
 def _force_headless_opencv() -> None:
+    # Never uninstall after headless is installed: both packages share the cv2 folder.
+    logger.info("removing GUI OpenCV packages if present")
+    _run([sys.executable, "-m", "pip", "uninstall", "-y", "opencv-python", "opencv-contrib-python"])
     logger.info("installing opencv-python-headless")
     code = _run([sys.executable, "-m", "pip", "install", "--no-cache-dir", "opencv-python-headless"])
     if code != 0:
         logger.warning("opencv-python-headless install failed")
-        return
-    _run([sys.executable, "-m", "pip", "uninstall", "-y", "opencv-python", "opencv-contrib-python"])
 
 
 def _needs_repair(exc: BaseException) -> bool:
