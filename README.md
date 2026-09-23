@@ -45,8 +45,8 @@ Python 3.12+ is required.
 Install FFmpeg so `ffprobe` is on `PATH`.
 
 ```bash
-# Debian/Ubuntu
-sudo apt-get update && sudo apt-get install -y ffmpeg
+# Debian/Ubuntu — FFmpeg + OpenCV runtime libs (needed in slim Docker)
+sudo apt-get update && sudo apt-get install -y ffmpeg libgl1 libglib2.0-0 libgomp1 libsm6 libxext6 libxrender1 libxcb1
 ```
 
 ### Discord bot
