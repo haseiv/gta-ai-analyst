@@ -40,6 +40,9 @@ SAFE_ERRORS = {
     "даже в 360p": "Видео слишком тяжёлое. Сократи откат или подними MAX_VIDEO_SIZE_MB.",
     "скачать видео": "Не удалось скачать видео по ссылке.",
     "этой ссылке": "Не удалось скачать видео. Ссылка закрыта, удалена или не поддерживается.",
+    "confirm your age": "YouTube не отдаёт 18+ без cookies. Положи cookies.txt или залей на Диск.",
+    "18+": "YouTube не отдаёт 18+ без cookies. Положи cookies.txt или залей на Диск.",
+    "возраст": "YouTube не отдаёт 18+ без cookies. Положи cookies.txt или залей на Диск.",
     "не поддерживается": "Эта ссылка не поддерживается.",
     "веб-страница": "Скачалась страница сайта, а не видео. Нужна открытая ссылка YouTube / Диск / Rutube.",
     "не видео": "Файл скачался, но это не видео.",
@@ -112,7 +115,12 @@ class GTAAnalystBot(commands.Bot):
         self._set_job(job, "DOWNLOADING", 5)
         dest = self.storage.allocate(job.filename)
         max_bytes = self.settings.max_video_size_mb * 1024 * 1024
-        dest = await self.storage.download_video(job.video_url, dest, max_bytes)
+        dest = await self.storage.download_video(
+            job.video_url,
+            dest,
+            max_bytes,
+            cookies_file=self.settings.ytdlp_cookies_file or None,
+        )
         job.video_path = str(dest)
         job.filename = dest.name
         self.analyses.update(job.analysis_id, video_path=str(dest), filename=dest.name, status="DOWNLOADING")

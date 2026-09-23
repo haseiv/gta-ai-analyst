@@ -21,6 +21,8 @@ models/*.onnx
 !models/.gitkeep
 !models/README.md
 
+data/cookies.txt
+*cookies*.txt
 *.log
 .idea/
 .vscode/

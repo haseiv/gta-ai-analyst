@@ -34,6 +34,7 @@ class Settings(BaseModel):
     temp_dir: Path = ROOT_DIR / "data" / "temp"
     database_dir: Path = ROOT_DIR / "data" / "database"
     models_dir: Path = ROOT_DIR / "models"
+    ytdlp_cookies_file: str = ""
 
     @field_validator("developer_user_ids", mode="before")
     @classmethod
@@ -82,6 +83,7 @@ def get_settings() -> Settings:
         discord_upload_limit_mb=env_int("DISCORD_UPLOAD_LIMIT_MB", 25),
         ai_timeout_seconds=env_float("AI_TIMEOUT_SECONDS", 45.0),
         ai_max_retries=env_int("AI_MAX_RETRIES", 2),
+        ytdlp_cookies_file=env_str("YTDLP_COOKIES_FILE"),
     )
     settings.ensure_runtime_dirs()
     return settings

@@ -19,8 +19,23 @@ class VideoDownloadError(RuntimeError):
     pass
 
 
-def download_platform_video(url: str, dest: Path, max_bytes: int) -> Path:
-    """Download YouTube / Google Drive / Rutube at 720p or lower. Writes to disk only."""
+def _friendly_error(text: str) -> str | None:
+    lower = text.lower()
+    if "confirm your age" in lower or "age-restricted" in lower or "sign in to confirm" in lower:
+        return (
+            "YouTube не отдаёт это видео без входа (возраст / 18+). "
+            "Положи cookies.txt на сервер и укажи YTDLP_COOKIES_FILE, "
+            "либо залей откат на Google Диск / Rutube."
+        )
+    if "private video" in lower or "login required" in lower:
+        return "Видео приватное. Сделай доступ по ссылке или положи cookies YouTube на сервер."
+    if "video unavailable" in lower:
+        return "YouTube пишет, что видео недоступно."
+    return None
+
+
+def download_platform_video(url: str, dest: Path, max_bytes: int, cookies_file: str | None = None) -> Path:
+    """Download YouTube / Google Drive / Rutube. Writes to disk only."""
     from yt_dlp import YoutubeDL
     from yt_dlp.utils import DownloadError, UnsupportedError
 
@@ -51,6 +66,9 @@ def download_platform_video(url: str, dest: Path, max_bytes: int) -> Path:
             "retries": 2,
             "progress_hooks": [hook],
         }
+        if cookies_file and Path(cookies_file).is_file():
+            opts["cookiefile"] = cookies_file
+            logger.info("yt-dlp using cookies file")
         try:
             with YoutubeDL(opts) as client:
                 client.download([url])
@@ -62,9 +80,12 @@ def download_platform_video(url: str, dest: Path, max_bytes: int) -> Path:
             _cleanup_partial(template)
             raise VideoDownloadError("Эта ссылка не поддерживается.") from exc
         except DownloadError as exc:
+            friendly = _friendly_error(str(exc))
+            _cleanup_partial(template)
+            if friendly:
+                raise VideoDownloadError(friendly) from exc
             last_error = exc
             logger.warning("yt-dlp format failed: %s", fmt)
-            _cleanup_partial(template)
             continue
 
         produced = [path for path in dest.parent.glob(f"{template.name}.*") if path.is_file()]
@@ -90,7 +111,7 @@ def download_platform_video(url: str, dest: Path, max_bytes: int) -> Path:
 
     _cleanup_partial(template)
     if last_error:
-        raise VideoDownloadError(str(last_error)) from last_error
+        raise VideoDownloadError(_friendly_error(str(last_error)) or "Не удалось скачать видео по этой ссылке.") from last_error
     raise VideoDownloadError("Не удалось скачать видео по этой ссылке.")
 
 
