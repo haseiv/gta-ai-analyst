@@ -68,7 +68,7 @@ cp .env.example .env
 | `AI_API_KEY` / `AI_MODEL` / `AI_BASE_URL` | OpenAI-compatible HTTP API |
 | `YOLO_MODEL_PATH` | Weights file, default `models/default.pt` |
 | `DATABASE_URL` | SQLite URL |
-| `MAX_VIDEO_SIZE_MB` | Upload cap |
+| `MAX_VIDEO_SIZE_MB` | Лимит скачивания, по умолчанию 250 МБ. YouTube качается в 720p |
 | `ANALYSIS_FPS` | Sampled analysis rate |
 | `MAX_CONCURRENT_ANALYSES` | Keep at `1` on 2 GB RAM |
 | `REPLAY_CHANNEL_ID` | Channel for sent replays |
