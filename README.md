@@ -101,7 +101,7 @@ python main.py
 | Command | Who | What |
 | --- | --- | --- |
 | `/menu` | Все | Меню с кнопкой «Залить откат» |
-| `/analyze url:` | Все | Разбор по прямой ссылке на видео |
+| `/analyze url:` | Все | Разбор по YouTube / Google Диск / Rutube / прямой ссылке |
 | `/status analysis_id:` | Все | Статус анализа |
 | `/help` | Все | То же меню |
 | `/train_add` | Developers | Add a completed analysis to the knowledge base |

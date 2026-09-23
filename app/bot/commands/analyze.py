@@ -17,6 +17,6 @@ class AnalyzeCog(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name="analyze", description="Разобрать откат по ссылке")
-    @app_commands.describe(url="Прямая ссылка на видео (.mp4 .mov .mkv .webm)")
+    @app_commands.describe(url="YouTube, Google Диск, Rutube или прямая ссылка на файл")
     async def analyze(self, interaction: discord.Interaction, url: str) -> None:
         await submit_video_url(self.bot, interaction, url)

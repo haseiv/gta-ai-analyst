@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import aiohttp
 
+from app.services.ytdlp import download_platform_video
 from app.utils.files import unique_temp_path
 from app.utils.logging import get_logger
+from app.utils.urls import is_platform_url
 
 logger = get_logger(__name__)
 
@@ -19,6 +22,12 @@ class LocalFileStorage:
 
     def allocate(self, filename: str) -> Path:
         return unique_temp_path(self.temp_dir, filename)
+
+    async def download_video(self, url: str, dest: Path, max_bytes: int) -> Path:
+        if is_platform_url(url):
+            return await asyncio.to_thread(download_platform_video, url, dest, max_bytes)
+        await self.download(url, dest, max_bytes)
+        return dest
 
     async def download(self, url: str, dest: Path, max_bytes: int) -> int:
         timeout = aiohttp.ClientTimeout(total=180)

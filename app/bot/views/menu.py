@@ -15,15 +15,20 @@ def build_menu_embed() -> discord.Embed:
         title="🎮 GTA AI Analyst",
         description=(
             "Пришли **ссылку** на откат — бот скачает видео и разберёт геймплей.\n"
-            "Файлы в Discord не принимаются, только http/https ссылка на `.mp4` `.mov` `.mkv` `.webm`."
+            "Файлы в Discord не принимаются."
         ),
         color=discord.Color.blurple(),
+    )
+    embed.add_field(
+        name="Какие ссылки подходят",
+        value="YouTube · Google Диск · Rutube · прямая ссылка на `.mp4` `.mov` `.mkv` `.webm`",
+        inline=False,
     )
     embed.add_field(
         name="Как пользоваться",
         value=(
             "1. Нажми **Залить откат**\n"
-            "2. Вставь прямую ссылку на видео\n"
+            "2. Вставь ссылку на видео\n"
             "3. Дождись разбора в этом канале"
         ),
         inline=False,
@@ -35,9 +40,9 @@ def build_menu_embed() -> discord.Embed:
 class UploadReplayModal(discord.ui.Modal, title="Залить откат"):
     url = discord.ui.TextInput(
         label="Ссылка на видео",
-        placeholder="https://example.com/replay.mp4",
-        style=discord.TextStyle.short,
-        max_length=400,
+        placeholder="YouTube, Google Диск, Rutube или прямая ссылка",
+        style=discord.TextStyle.paragraph,
+        max_length=1000,
     )
 
     def __init__(self, bot: GTAAnalystBot) -> None:

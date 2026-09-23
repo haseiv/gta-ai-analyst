@@ -34,6 +34,8 @@ SAFE_ERRORS = {
     "OpenCV": "Не удалось декодировать видео.",
     "лимит размера": "Видео больше разрешённого размера.",
     "скачать видео": "Не удалось скачать видео по ссылке.",
+    "этой ссылке": "Не удалось скачать видео. Ссылка закрыта, удалена или не поддерживается.",
+    "не поддерживается": "Эта ссылка не поддерживается.",
 }
 
 
@@ -103,9 +105,10 @@ class GTAAnalystBot(commands.Bot):
         self._set_job(job, "DOWNLOADING", 5)
         dest = self.storage.allocate(job.filename)
         max_bytes = self.settings.max_video_size_mb * 1024 * 1024
-        await self.storage.download(job.video_url, dest, max_bytes)
+        dest = await self.storage.download_video(job.video_url, dest, max_bytes)
         job.video_path = str(dest)
-        self.analyses.update(job.analysis_id, video_path=str(dest), status="DOWNLOADING")
+        job.filename = dest.name
+        self.analyses.update(job.analysis_id, video_path=str(dest), filename=dest.name, status="DOWNLOADING")
 
         metadata = validate_video_file(dest, self.settings.max_video_size_mb)
         logger.info(
