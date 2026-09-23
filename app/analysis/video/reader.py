@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Iterator
 from pathlib import Path
 
-import cv2
 import numpy as np
 
 
@@ -13,6 +12,8 @@ def iter_sampled_frames(
     source_fps: float | None = None,
 ) -> Iterator[tuple[float, np.ndarray]]:
     """Stream frames one at a time. Never load the full video into RAM."""
+    import cv2
+
     capture = cv2.VideoCapture(str(path))
     if not capture.isOpened():
         raise RuntimeError("OpenCV could not open the video")

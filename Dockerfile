@@ -24,6 +24,9 @@ COPY app ./app
 COPY models ./models
 COPY data ./data
 
+COPY start.sh .
+RUN chmod +x start.sh
+
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "main.py"]
+CMD ["./start.sh"]
