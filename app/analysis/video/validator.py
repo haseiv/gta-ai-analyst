@@ -17,7 +17,7 @@ def validate_extension(filename: str) -> str:
     suffix = Path(filename).suffix.lower()
     if suffix not in SUPPORTED_EXTENSIONS:
         raise VideoValidationError(
-            f"Unsupported file type '{suffix or 'unknown'}'. Use .mp4, .mov, .mkv, or .webm."
+            f"Формат «{suffix or 'неизвестный'}» не поддерживается. Нужен .mp4, .mov, .mkv или .webm."
         )
     return suffix
 
@@ -25,16 +25,16 @@ def validate_extension(filename: str) -> str:
 def validate_size(size_bytes: int, max_mb: int) -> None:
     max_bytes = max_mb * 1024 * 1024
     if size_bytes <= 0:
-        raise VideoValidationError("The attachment is empty.")
+        raise VideoValidationError("Файл пустой.")
     if size_bytes > max_bytes:
         raise VideoValidationError(
-            f"Video is too large ({size_bytes / (1024 * 1024):.1f} MB). Max size is {max_mb} MB."
+            f"Видео слишком большое ({size_bytes / (1024 * 1024):.1f} МБ). Максимум {max_mb} МБ."
         )
 
 
 def validate_video_file(path: Path, max_mb: int) -> VideoMetadata:
     if not path.exists():
-        raise VideoValidationError("Video file was not found after download.")
+        raise VideoValidationError("После скачивания файл не найден.")
     validate_extension(path.name)
     validate_size(path.stat().st_size, max_mb)
     try:

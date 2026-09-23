@@ -34,27 +34,27 @@ class ReplayService:
     def can_send(self, analysis_id: str, user_id: int) -> tuple[bool, str]:
         analysis = self.analyses.get(analysis_id)
         if analysis is None:
-            return False, "Analysis not found."
+            return False, "Анализ не найден."
         if analysis.discord_user_id != user_id:
-            return False, "Only the analysis owner can send this replay."
+            return False, "Отправить откат может только автор анализа."
         replay = self.replays.get_by_analysis(analysis_id)
         if replay is None:
-            return False, "Replay is not available."
+            return False, "Откат недоступен."
         if replay.status == "SENT":
-            return False, "This replay was already sent."
+            return False, "Этот откат уже отправили."
         if replay.status == "SENDING":
-            return False, "This replay is already being sent."
+            return False, "Этот откат уже отправляется."
         if replay.status == "EXPIRED" or as_utc(replay.expires_at) <= utc_now():
-            return False, "This replay has expired."
+            return False, "Срок хранения отката истёк."
         if replay.status != "AVAILABLE":
-            return False, "This replay cannot be sent."
+            return False, "Этот откат нельзя отправить."
         if not analysis.video_path or not Path(analysis.video_path).exists():
-            return False, "Replay file is no longer on disk."
+            return False, "Файл отката уже удалён с диска."
         size = Path(analysis.video_path).stat().st_size
         if size > self.settings.discord_upload_limit_mb * 1024 * 1024:
             return False, (
-                f"Video exceeds the Discord upload limit "
-                f"({self.settings.discord_upload_limit_mb} MB)."
+                f"Видео больше лимита загрузки Discord "
+                f"({self.settings.discord_upload_limit_mb} МБ)."
             )
         return True, ""
 

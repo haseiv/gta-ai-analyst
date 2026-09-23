@@ -27,4 +27,4 @@ def test_replay_duplicate_protection(isolated_db, tmp_path: Path):
     service.mark_sent("A200")
     ok, reason = service.can_send("A200", 55)
     assert not ok
-    assert "already sent" in reason
+    assert "уже отправили" in reason

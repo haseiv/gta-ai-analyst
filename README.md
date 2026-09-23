@@ -100,9 +100,10 @@ python main.py
 
 | Command | Who | What |
 | --- | --- | --- |
-| `/analyze video:` | Everyone | Queue a clip |
-| `/status analysis_id:` | Everyone | Show job status |
-| `/help` | Everyone | Usage |
+| `/menu` | Все | Меню с кнопкой «Залить откат» |
+| `/analyze url:` | Все | Разбор по прямой ссылке на видео |
+| `/status analysis_id:` | Все | Статус анализа |
+| `/help` | Все | То же меню |
 | `/train_add` | Developers | Add a completed analysis to the knowledge base |
 | `/train_list` | Developers | List examples |
 | `/train_remove` | Developers | Delete an example |

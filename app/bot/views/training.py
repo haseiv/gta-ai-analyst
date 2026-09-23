@@ -14,10 +14,10 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class TrainingModal(discord.ui.Modal, title="Human analysis"):
-    category = discord.ui.TextInput(label="Category", placeholder="Movement", max_length=64)
-    human_analysis = discord.ui.TextInput(label="Human Analysis", style=discord.TextStyle.paragraph)
-    recommendation = discord.ui.TextInput(label="Recommendation", style=discord.TextStyle.paragraph)
+class TrainingModal(discord.ui.Modal, title="Мой разбор"):
+    category = discord.ui.TextInput(label="Категория", placeholder="Movement", max_length=64)
+    human_analysis = discord.ui.TextInput(label="Разбор", style=discord.TextStyle.paragraph)
+    recommendation = discord.ui.TextInput(label="Рекомендация", style=discord.TextStyle.paragraph)
 
     def __init__(
         self,
@@ -36,7 +36,7 @@ class TrainingModal(discord.ui.Modal, title="Human analysis"):
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         if not self.bot.settings.is_developer(interaction.user.id):
-            await interaction.response.send_message("Developer only.", ephemeral=True)
+            await interaction.response.send_message("Только для разработчиков.", ephemeral=True)
             return
         example = TrainingService().add(
             analysis_id=self.analysis_id,
@@ -50,7 +50,7 @@ class TrainingModal(discord.ui.Modal, title="Human analysis"):
         )
         logger.info("training example creation id=%s analysis_id=%s", example.id, self.analysis_id)
         await interaction.response.send_message(
-            f"Saved training example #{example.id} for analysis #{self.analysis_id}.",
+            f"Сохранён пример #{example.id} для анализа #{self.analysis_id}.",
             ephemeral=True,
         )
 
@@ -76,7 +76,7 @@ class TrainingAddView(discord.ui.View):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if self.bot.settings.is_developer(interaction.user.id):
             return True
-        await interaction.response.send_message("Developer only.", ephemeral=True)
+        await interaction.response.send_message("Только для разработчиков.", ephemeral=True)
         return False
 
     @discord.ui.button(label="✅ Добавить как есть", style=discord.ButtonStyle.success)
@@ -93,7 +93,7 @@ class TrainingAddView(discord.ui.View):
         )
         logger.info("training example creation id=%s analysis_id=%s", example.id, self.analysis_id)
         await interaction.response.edit_message(
-            content=f"Saved training example #{example.id} ({format_timestamp(self.start)}–{format_timestamp(self.end)}).",
+            content=f"Сохранён пример #{example.id} ({format_timestamp(self.start)}–{format_timestamp(self.end)}).",
             embed=None,
             view=None,
         )
@@ -107,5 +107,5 @@ class TrainingAddView(discord.ui.View):
 
     @discord.ui.button(label="❌ Отмена", style=discord.ButtonStyle.secondary)
     async def cancel(self, interaction: discord.Interaction, _button: discord.ui.Button) -> None:
-        await interaction.response.edit_message(content="Cancelled.", embed=None, view=None)
+        await interaction.response.edit_message(content="Отменено.", embed=None, view=None)
         self.stop()

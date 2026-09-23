@@ -12,7 +12,7 @@ def main() -> None:
     ensure_cv2()
     from app.bot.bot import create_bot
     if not settings.discord_token:
-        raise SystemExit("DISCORD_TOKEN is missing. Copy .env.example to .env and fill it in.")
+        raise SystemExit("Нет DISCORD_TOKEN. Скопируй .env.example в .env и заполни.")
     bot = create_bot(settings)
     bot.run(settings.discord_token, log_handler=None)
 

@@ -15,7 +15,7 @@ def as_utc(value: datetime) -> datetime:
 
 def format_timestamp(seconds: float | None) -> str:
     if seconds is None:
-        return "N/A"
+        return "Н/Д"
     total = max(0, int(seconds))
     minutes, secs = divmod(total, 60)
     hours, minutes = divmod(minutes, 60)
@@ -29,7 +29,7 @@ def parse_timestamp(value: str | None) -> float | None:
         return None
     parts = value.strip().split(":")
     if not parts or any(not part.isdigit() for part in parts):
-        raise ValueError("Timestamp must look like MM:SS or HH:MM:SS")
+        raise ValueError("Время должно быть в формате ММ:СС или ЧЧ:ММ:СС")
     numbers = [int(part) for part in parts]
     if len(numbers) == 2:
         minutes, seconds = numbers
@@ -37,4 +37,4 @@ def parse_timestamp(value: str | None) -> float | None:
     if len(numbers) == 3:
         hours, minutes, seconds = numbers
         return float(hours * 3600 + minutes * 60 + seconds)
-    raise ValueError("Timestamp must look like MM:SS or HH:MM:SS")
+    raise ValueError("Время должно быть в формате ММ:СС или ЧЧ:ММ:СС")

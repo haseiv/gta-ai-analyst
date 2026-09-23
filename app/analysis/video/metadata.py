@@ -35,7 +35,7 @@ def _parse_frame_rate(value: str | None) -> float:
 def probe_video(path: Path) -> VideoMetadata:
     ffprobe = shutil.which("ffprobe")
     if ffprobe is None:
-        raise ProbeError("ffprobe is not installed or not on PATH")
+        raise ProbeError("ffprobe не установлен или не найден в PATH")
 
     command = [
         ffprobe,
@@ -60,29 +60,29 @@ def probe_video(path: Path) -> VideoMetadata:
             timeout=30,
         )
     except subprocess.TimeoutExpired as exc:
-        raise ProbeError("ffprobe timed out while reading video metadata") from exc
+        raise ProbeError("ffprobe слишком долго читал метаданные видео") from exc
 
     if completed.returncode != 0:
-        raise ProbeError("ffprobe could not read this file as a video")
+        raise ProbeError("ffprobe не смог прочитать этот файл как видео")
 
     try:
         payload = json.loads(completed.stdout or "{}")
     except json.JSONDecodeError as exc:
-        raise ProbeError("ffprobe returned invalid metadata") from exc
+        raise ProbeError("ffprobe вернул некорректные метаданные") from exc
 
     streams = payload.get("streams") or []
     video_stream = next((item for item in streams if item.get("codec_type") == "video"), None)
     if video_stream is None and streams:
         video_stream = streams[0]
     if video_stream is None:
-        raise ProbeError("No video stream found in the file")
+        raise ProbeError("В файле нет видеопотока")
 
     fmt = payload.get("format") or {}
     duration_raw = fmt.get("duration")
     try:
         duration = float(duration_raw)
     except (TypeError, ValueError) as exc:
-        raise ProbeError("Video duration is missing or invalid") from exc
+        raise ProbeError("Длительность видео отсутствует или некорректна") from exc
 
     width = int(video_stream.get("width") or 0)
     height = int(video_stream.get("height") or 0)
@@ -90,6 +90,6 @@ def probe_video(path: Path) -> VideoMetadata:
     codec = str(video_stream.get("codec_name") or "unknown")
 
     if duration <= 0 or width <= 0 or height <= 0:
-        raise ProbeError("Video metadata is incomplete (duration/resolution)")
+        raise ProbeError("Метаданные видео неполные (длительность или разрешение)")
 
     return VideoMetadata(duration=duration, width=width, height=height, fps=fps, codec=codec)

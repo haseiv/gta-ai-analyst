@@ -23,17 +23,18 @@ class LocalFileStorage:
     async def download(self, url: str, dest: Path, max_bytes: int) -> int:
         timeout = aiohttp.ClientTimeout(total=180)
         written = 0
+        headers = {"User-Agent": "GTA-AI-Analyst/1.0"}
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url) as response:
+            async with session.get(url, headers=headers, allow_redirects=True) as response:
                 if response.status >= 400:
-                    raise RuntimeError("Could not download the Discord attachment")
+                    raise RuntimeError("Не удалось скачать видео по ссылке")
                 with dest.open("wb") as handle:
                     async for chunk in response.content.iter_chunked(64 * 1024):
                         written += len(chunk)
                         if written > max_bytes:
                             handle.close()
                             dest.unlink(missing_ok=True)
-                            raise RuntimeError("Download exceeded the configured size limit")
+                            raise RuntimeError("Скачивание превысило лимит размера")
                         handle.write(chunk)
         logger.info("download complete path=%s bytes=%s", dest.name, written)
         return written

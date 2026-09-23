@@ -20,7 +20,7 @@ class ReplayReadyView(discord.ui.View):
     @discord.ui.button(label="📤 Отправить откат", style=discord.ButtonStyle.primary)
     async def send_replay(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("Only the analysis owner can send this replay.", ephemeral=True)
+            await interaction.response.send_message("Отправить откат может только автор анализа.", ephemeral=True)
             return
         allowed, reason = self.bot.replay_service.can_send(self.analysis_id, interaction.user.id)
         if not allowed:

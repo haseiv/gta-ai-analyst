@@ -29,11 +29,11 @@ from app.utils.time import utc_now
 logger = get_logger(__name__)
 
 SAFE_ERRORS = {
-    "ffprobe": "Video metadata could not be read. The file may not be a real video.",
-    "YOLO model not found": "Vision model is not installed on the server.",
-    "OpenCV": "The video could not be decoded.",
-    "Download exceeded": "The video exceeded the configured size limit.",
-    "Could not download": "The video attachment could not be downloaded.",
+    "ffprobe": "Не удалось прочитать метаданные. Это может быть не видео.",
+    "YOLO model not found": "Модель зрения не установлена на сервере.",
+    "OpenCV": "Не удалось декодировать видео.",
+    "лимит размера": "Видео больше разрешённого размера.",
+    "скачать видео": "Не удалось скачать видео по ссылке.",
 }
 
 
@@ -42,7 +42,7 @@ def public_error(exc: Exception) -> str:
     for needle, message in SAFE_ERRORS.items():
         if needle in text:
             return message
-    return "Internal analysis error. The team can check server logs."
+    return "Внутренняя ошибка анализа. Подробности в логах сервера."
 
 
 class GTAAnalystBot(commands.Bot):
@@ -75,8 +75,11 @@ class GTAAnalystBot(commands.Bot):
         init_db(self.settings)
         await self.add_cog(AnalyzeCog(self))
         await self.add_cog(StatusCog(self))
-        await self.add_cog(HelpCog())
+        await self.add_cog(HelpCog(self))
         await self.add_cog(TrainingCog(self))
+        from app.bot.views.menu import MainMenuView
+
+        self.add_view(MainMenuView(self))
         await self.job_queue.start()
         await self.cleanup.start()
         await self.tree.sync()
@@ -181,7 +184,7 @@ class GTAAnalystBot(commands.Bot):
                 return
             claimed = self.replays.claim_for_send(analysis_id)
             if claimed is None:
-                await interaction.response.send_message("This replay cannot be sent.", ephemeral=True)
+                await interaction.response.send_message("Этот откат нельзя отправить.", ephemeral=True)
                 return
             analysis = self.analyses.get(analysis_id)
             assert analysis is not None
@@ -190,7 +193,7 @@ class GTAAnalystBot(commands.Bot):
             channel = self.get_channel(target_id) if target_id else None
             if not isinstance(channel, discord.abc.Messageable):
                 self.replay_service.mark_failed(analysis_id)
-                await interaction.response.send_message("Replay channel is not configured or not visible.", ephemeral=True)
+                await interaction.response.send_message("Канал для откатов не настроен или бот его не видит.", ephemeral=True)
                 return
             summary = ""
             if analysis.result_json:
@@ -206,7 +209,7 @@ class GTAAnalystBot(commands.Bot):
                 logger.exception("replay send failed analysis_id=%s", analysis_id)
                 self.replay_service.mark_failed(analysis_id)
                 await interaction.response.send_message(
-                    "Discord rejected the upload. The file may exceed the server upload limit.",
+                    "Discord отклонил загрузку. Файл может быть больше лимита сервера.",
                     ephemeral=True,
                 )
                 return

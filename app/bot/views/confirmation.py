@@ -17,7 +17,7 @@ class ReplayConfirmView(discord.ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("Only the analysis owner can confirm this.", ephemeral=True)
+            await interaction.response.send_message("Подтвердить может только автор анализа.", ephemeral=True)
             return False
         return True
 

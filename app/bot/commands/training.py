@@ -28,8 +28,8 @@ class TrainingCog(commands.Cog):
             return False
         return True
 
-    @app_commands.command(name="train_add", description="Add a completed analysis to the knowledge base")
-    @app_commands.describe(analysis_id="Existing analysis id", start="Optional MM:SS", end="Optional MM:SS")
+    @app_commands.command(name="train_add", description="Добавить готовый анализ в базу знаний")
+    @app_commands.describe(analysis_id="Номер анализа", start="Необязательно ММ:СС", end="Необязательно ММ:СС")
     async def train_add(
         self,
         interaction: discord.Interaction,
@@ -42,7 +42,7 @@ class TrainingCog(commands.Cog):
         analysis_id = analysis_id.strip().upper()
         row = self.bot.analyses.get(analysis_id)
         if row is None or row.status != "COMPLETED" or not row.result_json:
-            await interaction.response.send_message("Completed analysis not found.", ephemeral=True)
+            await interaction.response.send_message("Готовый анализ не найден.", ephemeral=True)
             return
         try:
             start_ts = parse_timestamp(start)
@@ -52,28 +52,28 @@ class TrainingCog(commands.Cog):
             return
         result = json.loads(row.result_json)
         coach = result.get("coach") or {}
-        ai_analysis = coach.get("summary") or "No AI summary stored."
-        embed = discord.Embed(title="🧠 TRAINING EXAMPLE", color=discord.Color.purple())
-        embed.add_field(name="Analysis", value=f"#{analysis_id}", inline=True)
+        ai_analysis = coach.get("summary") or "Итог ИИ не сохранён."
+        embed = discord.Embed(title="🧠 ПРИМЕР ДЛЯ ОБУЧЕНИЯ", color=discord.Color.purple())
+        embed.add_field(name="Анализ", value=f"#{analysis_id}", inline=True)
         embed.add_field(
-            name="Moment",
+            name="Момент",
             value=f"{format_timestamp(start_ts)}–{format_timestamp(end_ts)}",
             inline=True,
         )
-        embed.add_field(name="🤖 AI ANALYSIS", value=ai_analysis[:1000], inline=False)
+        embed.add_field(name="🤖 РАЗБОР ИИ", value=ai_analysis[:1000], inline=False)
         await interaction.response.send_message(
             embed=embed,
             ephemeral=True,
             view=TrainingAddView(self.bot, analysis_id, ai_analysis, start_ts, end_ts, "General"),
         )
 
-    @app_commands.command(name="train_list", description="List developer-selected training examples")
+    @app_commands.command(name="train_list", description="Список примеров в базе знаний")
     async def train_list(self, interaction: discord.Interaction) -> None:
         if not await self._guard(interaction):
             return
         rows = self.training.list(15)
         if not rows:
-            await interaction.response.send_message("Knowledge base is empty.", ephemeral=True)
+            await interaction.response.send_message("База знаний пуста.", ephemeral=True)
             return
         lines = [
             f"#{item.id} {item.analysis_id} {item.category} {format_timestamp(item.timestamp_start)}–{format_timestamp(item.timestamp_end)}"
@@ -81,24 +81,24 @@ class TrainingCog(commands.Cog):
         ]
         await interaction.response.send_message("\n".join(lines), ephemeral=True)
 
-    @app_commands.command(name="train_remove", description="Remove a training example")
+    @app_commands.command(name="train_remove", description="Удалить пример из базы знаний")
     async def train_remove(self, interaction: discord.Interaction, example_id: int) -> None:
         if not await self._guard(interaction):
             return
         deleted = self.training.delete(example_id)
         await interaction.response.send_message(
-            "Removed." if deleted else "Example not found.",
+            "Удалено." if deleted else "Пример не найден.",
             ephemeral=True,
         )
 
-    @app_commands.command(name="train_stats", description="Knowledge base stats")
+    @app_commands.command(name="train_stats", description="Статистика базы знаний")
     async def train_stats(self, interaction: discord.Interaction) -> None:
         if not await self._guard(interaction):
             return
         stats = self.training.stats()
-        embed = discord.Embed(title="🧠 GTA AI KNOWLEDGE", color=discord.Color.purple())
-        embed.add_field(name="Training examples", value=str(stats.get("total", 0)), inline=False)
+        embed = discord.Embed(title="🧠 БАЗА ЗНАНИЙ GTA AI", color=discord.Color.purple())
+        embed.add_field(name="Примеров", value=str(stats.get("total", 0)), inline=False)
         for category in ("Movement", "Positioning", "Awareness", "Combat", "Aim", "General"):
             embed.add_field(name=category, value=str(stats.get(category, 0)), inline=True)
-        embed.add_field(name="Dataset version", value="v1", inline=False)
+        embed.add_field(name="Версия датасета", value="v1", inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)

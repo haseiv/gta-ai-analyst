@@ -53,7 +53,7 @@ async def test_pipeline_keeps_cv_when_ai_down(monkeypatch, tmp_path: Path):
         yield 0.0, np.zeros((32, 32, 3), dtype=np.uint8)
         yield 0.4, np.zeros((32, 32, 3), dtype=np.uint8)
 
-    monkeypatch.setattr("app.analysis.pipeline.iter_sampled_frames", fake_frames)
+    monkeypatch.setattr("app.analysis.video.reader.iter_sampled_frames", fake_frames)
     pipeline = AnalysisPipeline(
         Settings(),
         FakeProvider(fail=True),
