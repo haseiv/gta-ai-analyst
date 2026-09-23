@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# Boot marker: if /app/main.py line 3 still imports create_bot, the host is on old code.
 from app.config.settings import get_settings
 from app.utils.logging import setup_logging
 from app.utils.opencv_runtime import ensure_cv2

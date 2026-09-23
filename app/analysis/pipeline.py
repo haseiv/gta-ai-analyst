@@ -13,7 +13,6 @@ from app.analysis.events.engine import EventEngine
 from app.analysis.metrics.engine import compute_metrics, compute_scores
 from app.analysis.tracking.tracker import TrackStore
 from app.analysis.video.metadata import VideoMetadata
-from app.analysis.video.reader import iter_sampled_frames
 from app.config.settings import Settings
 from app.learning.knowledge import CoachKnowledgeBase
 from app.utils.logging import get_logger
@@ -55,6 +54,8 @@ class AnalysisPipeline:
         metadata: VideoMetadata,
         on_progress: ProgressCallback | None = None,
     ) -> dict:
+        from app.analysis.video.reader import iter_sampled_frames
+
         detector = self.detector_factory(self.settings)
         detector.reset()
         store = TrackStore()

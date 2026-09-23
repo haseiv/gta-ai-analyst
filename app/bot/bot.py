@@ -7,7 +7,6 @@ import discord
 from discord.ext import commands
 
 from app.ai.provider import HTTPAIProvider
-from app.analysis.pipeline import AnalysisPipeline
 from app.analysis.video.validator import VideoValidationError, validate_video_file
 from app.bot.commands.analyze import AnalyzeCog
 from app.bot.commands.help import HelpCog
@@ -63,6 +62,8 @@ class GTAAnalystBot(commands.Bot):
             timeout_seconds=settings.ai_timeout_seconds,
             max_retries=settings.ai_max_retries,
         )
+        from app.analysis.pipeline import AnalysisPipeline
+
         self.pipeline = AnalysisPipeline(
             settings,
             self.provider,
