@@ -122,9 +122,7 @@ def build_analysis_embeds(analysis_id: str, result: dict) -> list[discord.Embed]
         inline=False,
     )
     summary = coach.get("summary") or ""
-    if not result.get("ai_available", True):
-        summary = "Компьютерное зрение готово, ИИ-тренер временно недоступен."
-    extra.add_field(name="🤖 ИИ-ТРЕНЕР", value=(summary or "Нет краткого итога.")[:EMBED_LIMIT], inline=False)
+    extra.add_field(name="🤖 РАЗБОР", value=(summary or "Нет краткого итога.")[:EMBED_LIMIT], inline=False)
     recs = coach.get("recommendations") or []
     extra.add_field(
         name="💡 РЕКОМЕНДАЦИИ",

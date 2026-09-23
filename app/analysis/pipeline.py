@@ -112,7 +112,7 @@ class AnalysisPipeline:
             ai_result = await orchestrator.run(payload)
         except AIProviderError:
             logger.warning("AI coach unavailable analysis_id=%s; keeping CV result", analysis_id)
-            ai_result = orchestrator.fallback()
+            ai_result = orchestrator.fallback(payload)
 
         if on_progress:
             on_progress(100.0)

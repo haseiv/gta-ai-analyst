@@ -66,4 +66,4 @@ async def test_pipeline_keeps_cv_when_ai_down(monkeypatch, tmp_path: Path):
     )
     assert result["ai_available"] is False
     assert result["metrics"]
-    assert "Computer Vision" in result["coach"]["summary"]
+    assert result["coach"]["summary"]

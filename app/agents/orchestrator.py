@@ -7,7 +7,9 @@ from app.agents.critic import CriticAgent
 from app.agents.head_coach import HeadCoachAgent
 from app.agents.movement import MovementAgent
 from app.agents.positioning import PositioningAgent
+from app.agents.local_coach import build_local_coach_report
 from app.ai.base import AIProviderError, BaseAIProvider
+from app.ai.provider import HTTPAIProvider
 from app.ai.schemas import AgentResult, CoachReport, CriticResult, PipelinePayload
 from app.learning.knowledge import CoachKnowledgeBase
 from app.utils.logging import get_logger
@@ -29,6 +31,9 @@ class AgentOrchestrator:
         self.critic = CriticAgent(provider)
 
     async def run(self, payload: PipelinePayload) -> dict:
+        if isinstance(self.provider, HTTPAIProvider) and not self.provider.available():
+            logger.info("AI provider is not configured, using local coach text")
+            return build_local_coach_report(payload)
         specialist_results: list[AgentResult] = []
         for agent in self.specialists:
             logger.info("agent analysis category=%s analysis_id=%s", agent.category, payload.analysis_id)
@@ -54,8 +59,10 @@ class AgentOrchestrator:
         }
 
     @staticmethod
-    def fallback(error: AIProviderError | None = None) -> dict:
-        note = "Computer Vision анализ завершён, AI Coach временно недоступен."
+    def fallback(payload: PipelinePayload | None = None, error: AIProviderError | None = None) -> dict:
+        if payload is not None:
+            return build_local_coach_report(payload)
+        note = "Компьютерное зрение готово, ИИ-тренер временно недоступен."
         return {
             "specialists": [],
             "coach": CoachReport(summary=note, recommendations=[]).model_dump(),
