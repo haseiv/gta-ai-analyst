@@ -16,55 +16,49 @@ def build_local_coach_report(payload: PipelinePayload) -> dict:
     duration = format_timestamp(payload.duration)
     frames = int((payload.metadata or {}).get("analyzed_frames") or 0)
     tracks = len(payload.tracks)
-    targets = _metric(payload, "targets_detected")
-    changes = _metric(payload, "direction_changes")
-    visibility = _metric(payload, "average_target_visibility")
-    events = payload.events
+    activity = _metric(payload, "movement_activity")
+    spikes = _metric(payload, "screen_motion_spikes") or _metric(payload, "direction_changes")
+    stills = _metric(payload, "still_moments")
 
-    if tracks == 0:
+    if activity is None and tracks == 0:
         summary = (
-            f"Ролик {duration} обработан ({frames} кадров). "
-            "Стандартный YOLO не нашёл устойчивых объектов на экране — "
-            "это ограничение модели на GTA/FiveM, а не оценка твоей игры. "
-            "Текстовый разбор механик без своих весов и без ИИ-API сейчас невозможен."
+            f"Ролик {duration} скачан на сервер и прочитан ({frames} кадров), "
+            "но движения по кадрам почти нет — запись слишком статичная или битая."
         )
-        strengths = []
-        mistakes = [
-            "Детектор не увидел игроков, машины и цели — по этим кадрам ошибки геймплея посчитать нельзя."
-        ]
-        recommendations = [
-            "Поставь свою GTA YOLO в models/gta_custom.pt и укажи YOLO_MODEL_PATH.",
-            "Чтобы бот писал живой разбор, заполни AI_BASE_URL, AI_API_KEY и AI_MODEL.",
-            "Снимай откат без сильного блюра и HUD на весь экран — стоковому YOLO так проще.",
-        ]
+        mistakes = ["По пикселям кадра активность не выделилась."]
+        recommendations = ["Пришли более живой фрагмент боя или поездки."]
+        strengths: list[str] = []
     else:
-        target_text = f"{int(targets)}" if targets is not None else "несколько"
+        pace = "спокойная"
+        if activity and activity >= 12:
+            pace = "рваная, камера и картинка часто дёргаются"
+        elif activity and activity >= 6:
+            pace = "средняя, запись живая"
         summary = (
-            f"Ролик {duration}, разобрано {frames} кадров, треков: {tracks}. "
-            f"На экране модель отметила около {target_text} объектов. "
-            "Оценки считаются только из того, что реально увидел детектор. "
-            "Мир GTA в метрах, укрытия и прицел здесь не измеряются."
+            f"Откат {duration} скачан на хост и разобран по кадрам ({frames} шт.). "
+            f"Экранная активность {pace}. "
+            "Это не метры в мире GTA и не прицел — только то, как шевелится картинка. "
+            "Стоковый YOLO людей и машины в FiveM почти не видит, поэтому киллы и укрытия не ставлю."
         )
         strengths = []
-        if visibility and visibility >= 2:
-            strengths.append(f"Цели держались в кадре в среднем {visibility:.1f} сек.")
-        if tracks >= 5:
-            strengths.append("На записи достаточно объектов, чтобы смотреть движение по экрану.")
+        if stills and stills >= 8:
+            strengths.append("Есть паузы в картинке — похоже, ты иногда стоишь или целишься, а не только бежишь.")
+        if tracks:
+            strengths.append(f"Детектор всё же поймал {tracks} объектов на экране.")
         mistakes = []
-        if changes and changes >= 20:
-            mistakes.append(f"Много смен направления на экране: {int(changes)}. Это пиксели, не метры.")
-        rapid = [item for item in events if item.get("type") == "RAPID_MOVEMENT"]
-        if rapid:
-            mistakes.append(f"Резкое экранное движение в {len(rapid)} фрагментах.")
-        multi = [item for item in events if item.get("type") == "MULTIPLE_TARGETS_VISIBLE"]
-        if multi:
-            mistakes.append("Несколько целей попадали в кадр одновременно — проверь, видел ли ты их все.")
+        if spikes and spikes >= 8:
+            mistakes.append(
+                f"Много резких скачков картинки ({int(spikes)}). "
+                "Либо камера крутится слишком активно, либо запись дёрганая."
+            )
+        if activity and activity >= 16:
+            mistakes.append("Картинка почти не успокаивается — оппоненту тебя сложнее читать, себе тоже.")
         if not mistakes:
-            mistakes.append("Явных срабатываний детектора ошибок мало. Не выдумываю киллы и дамаг.")
+            mistakes.append("По движению кадра грубых перекосов не видно. Оружие, дамаг и киллы система не видит.")
         recommendations = [
-            "Смотри моменты, где цели появляются и пропадают — там обычно теряется внимание.",
-            "Не читай экранную скорость как дистанцию в игре.",
-            "Для нормального текста коуча подключи AI API в .env.",
+            "На резких скачках картинки пересмотри откат — там обычно теряется контроль камеры.",
+            "Для точного разбора людей/машин нужна своя GTA-модель.",
+            "Не читай экранную активность как дистанцию в метрах.",
         ]
 
     report = CoachReport(

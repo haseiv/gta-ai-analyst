@@ -52,7 +52,7 @@ class YOLODetector(BaseDetector):
         self.model = _load_model(model_path)
 
     def detect(self, frame: np.ndarray) -> list[Detection]:
-        results = self.model.predict(frame, verbose=False, imgsz=640)
+        results = self.model.predict(frame, verbose=False, imgsz=640, conf=0.15)
         return self._to_detections(results)
 
     def track(self, frame: np.ndarray) -> list[Detection]:
@@ -62,6 +62,7 @@ class YOLODetector(BaseDetector):
             verbose=False,
             tracker="bytetrack.yaml",
             imgsz=640,
+            conf=0.15,
         )
         return self._to_detections(results)
 

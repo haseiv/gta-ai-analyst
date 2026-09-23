@@ -14,6 +14,15 @@ def test_metrics_insufficient_without_tracks():
     assert all(metric.status == "insufficient_data" for metric in metrics)
 
 
+def test_metrics_from_screen_motion_without_tracks():
+    motion = {"activity": 9.2, "consistency": 0.7, "spikes": 11, "stills": 4, "sample_size": 40}
+    metrics = {item.name: item for item in compute_metrics({}, frame_count=40, motion=motion)}
+    assert metrics["movement_activity"].value == 9.2
+    assert metrics["direction_changes"].value == 11
+    scores = {item.name: item for item in compute_scores(list(metrics.values()))}
+    assert scores["Movement"].value is not None
+
+
 def test_metrics_and_scores_from_tracks():
     tracks = {
         1: _track(1, [(0, 0, 0), (1, 80, 0), (2, 90, 10)]),

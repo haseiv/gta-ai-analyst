@@ -10,7 +10,11 @@ def _metric(name: str, value: float | None, confidence: float, sample_size: int)
     return Metric(name=name, value=round(value, 3), confidence=confidence, sample_size=sample_size, status="ok")
 
 
-def compute_metrics(tracks: dict[int, Track], frame_count: int) -> list[Metric]:
+def compute_metrics(
+    tracks: dict[int, Track],
+    frame_count: int,
+    motion: dict | None = None,
+) -> list[Metric]:
     values = list(tracks.values())
     speeds = [track.average_screen_speed for track in values if len(track.history) >= 2]
     changes = [track.direction_changes for track in values]
@@ -30,13 +34,31 @@ def compute_metrics(tracks: dict[int, Track], frame_count: int) -> list[Metric]:
         mean = sum(speeds) / len(speeds)
         variance = sum((item - mean) ** 2 for item in speeds) / len(speeds)
         movement_consistency = 1.0 / (1.0 + variance / max(mean, 1.0))
+        activity_conf, activity_n = 0.6, len(speeds)
+        consist_conf, consist_n = 0.55, len(speeds)
     else:
         movement_consistency = None
+        activity_conf, activity_n = 0.0, 0
+        consist_conf, consist_n = 0.0, 0
+
+    if motion and movement_activity is None:
+        movement_activity = float(motion["activity"])
+        movement_consistency = float(motion["consistency"])
+        activity_conf, activity_n = 0.7, int(motion["sample_size"])
+        consist_conf, consist_n = 0.65, int(motion["sample_size"])
+
+    direction_value = float(sum(changes)) if values else None
+    direction_n = len(values)
+    direction_conf = 0.7 if values else 0.0
+    if motion and direction_value is None:
+        direction_value = float(motion["spikes"])
+        direction_n = int(motion["sample_size"])
+        direction_conf = 0.6
 
     return [
-        _metric("movement_activity", movement_activity, 0.6 if speeds else 0.0, len(speeds)),
-        _metric("movement_consistency", movement_consistency, 0.55 if speeds else 0.0, len(speeds)),
-        _metric("direction_changes", float(sum(changes)) if values else None, 0.7 if values else 0.0, len(values)),
+        _metric("movement_activity", movement_activity, activity_conf, activity_n),
+        _metric("movement_consistency", movement_consistency, consist_conf, consist_n),
+        _metric("direction_changes", direction_value, direction_conf, direction_n),
         _metric("targets_detected", float(len(values)) if frame_count else None, 0.8 if values else 0.0, len(values)),
         _metric(
             "average_target_visibility",
@@ -56,6 +78,18 @@ def compute_metrics(tracks: dict[int, Track], frame_count: int) -> list[Metric]:
             0.8 if confidences else 0.0,
             len(confidences),
         ),
+        _metric(
+            "screen_motion_spikes",
+            float(motion["spikes"]) if motion else None,
+            0.65 if motion else 0.0,
+            int(motion["sample_size"]) if motion else 0,
+        ),
+        _metric(
+            "still_moments",
+            float(motion["stills"]) if motion else None,
+            0.65 if motion else 0.0,
+            int(motion["sample_size"]) if motion else 0,
+        ),
     ]
 
 
@@ -74,7 +108,10 @@ def compute_scores(metrics: list[Metric]) -> list[Score]:
     consistency = by_name.get("movement_consistency")
     if activity and activity.value is not None and consistency and consistency.value is not None:
         # Screen-space heuristic only. Not world-space skill rating.
-        normalized_activity = min(activity.value / 250.0, 1.0)
+        if activity.value <= 80:
+            normalized_activity = min(activity.value / 18.0, 1.0)
+        else:
+            normalized_activity = min(activity.value / 250.0, 1.0)
         movement = 10.0 * (0.45 * normalized_activity + 0.55 * consistency.value)
         movement_conf = min(activity.confidence, consistency.confidence)
 

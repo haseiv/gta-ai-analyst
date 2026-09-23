@@ -10,7 +10,9 @@ from app.ai.schemas import PipelinePayload
 from app.analysis.detection.base import BaseDetector
 from app.analysis.detection.yolo import YOLODetector
 from app.analysis.events.engine import EventEngine
+from app.analysis.events.models import EventType, GameEvent
 from app.analysis.metrics.engine import compute_metrics, compute_scores
+from app.analysis.motion import ScreenMotionAnalyzer
 from app.analysis.tracking.tracker import TrackStore
 from app.analysis.video.metadata import VideoMetadata
 from app.config.settings import Settings
@@ -60,6 +62,7 @@ class AnalysisPipeline:
         detector.reset()
         store = TrackStore()
         events = EventEngine()
+        motion = ScreenMotionAnalyzer()
         frame_count = 0
         last_logged = -10
 
@@ -69,6 +72,7 @@ class AnalysisPipeline:
                 self.settings.analysis_fps,
                 source_fps=metadata.fps or None,
             ):
+                motion.update(timestamp, frame)
                 detections = detector.track(frame)
                 store.update(timestamp, detections)
                 events.on_frame(timestamp, detections)
@@ -85,8 +89,20 @@ class AnalysisPipeline:
             detector.reset()
 
         logger.info("CV completed analysis_id=%s frames=%s tracks=%s", analysis_id, frame_count, len(store.tracks))
+        motion_stats = motion.stats()
         game_events = events.finalize(store.tracks)
-        metrics = compute_metrics(store.tracks, frame_count)
+        if motion_stats:
+            for index, ts in enumerate(motion_stats["spike_times"], start=1):
+                game_events.append(
+                    GameEvent(
+                        id=f"M{index:04d}",
+                        type=EventType.RAPID_MOVEMENT,
+                        timestamp=ts,
+                        confidence=0.6,
+                        metadata={"source": "screen_motion", "unit": "frame_delta"},
+                    )
+                )
+        metrics = compute_metrics(store.tracks, frame_count, motion_stats)
         scores = compute_scores(metrics)
         payload = PipelinePayload(
             analysis_id=analysis_id,

@@ -18,7 +18,7 @@ class Settings(BaseModel):
     ai_base_url: str = ""
     yolo_model_path: str = "models/default.pt"
     database_url: str = "sqlite:///data/database/gta_ai.db"
-    max_video_size_mb: int = Field(default=250, ge=1)
+    max_video_size_mb: int = Field(default=2000, ge=1)
     analysis_fps: float = Field(default=5.0, gt=0)
     max_concurrent_analyses: int = Field(default=1, ge=1)
     replay_channel_id: int | None = None
@@ -70,7 +70,7 @@ def get_settings() -> Settings:
         ai_base_url=env_str("AI_BASE_URL"),
         yolo_model_path=env_str("YOLO_MODEL_PATH", "models/default.pt"),
         database_url=env_str("DATABASE_URL", "sqlite:///data/database/gta_ai.db"),
-        max_video_size_mb=env_int("MAX_VIDEO_SIZE_MB", 250),
+        max_video_size_mb=env_int("MAX_VIDEO_SIZE_MB", 2000),
         analysis_fps=env_float("ANALYSIS_FPS", 5.0),
         max_concurrent_analyses=env_int("MAX_CONCURRENT_ANALYSES", 1),
         replay_channel_id=env_str("REPLAY_CHANNEL_ID") or None,

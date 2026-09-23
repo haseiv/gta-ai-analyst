@@ -7,6 +7,7 @@ from app.utils.logging import get_logger
 logger = get_logger(__name__)
 
 _FORMATS = (
+    "bv*[height<=1080]+ba/b[height<=1080]",
     "bv*[height<=720]+ba/b[height<=720]",
     "bv*[height<=480]+ba/b[height<=480]",
     "bv*[height<=360]+ba/b[height<=360]",

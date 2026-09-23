@@ -21,7 +21,7 @@ def build_menu_embed() -> discord.Embed:
     )
     embed.add_field(
         name="Какие ссылки подходят",
-        value="YouTube · Google Диск · Rutube · прямая ссылка на `.mp4` `.mov` `.mkv` `.webm`\nРолики качаются в 720p, лимит около 250 МБ.",
+        value="YouTube · Google Диск · Rutube · прямая ссылка. Видео качается на сервер (до ~2 ГБ) и смотрится там по кадрам."
         inline=False,
     )
     embed.add_field(
