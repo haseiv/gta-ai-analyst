@@ -16,8 +16,7 @@ RUN apt-get update \
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt \
-    && pip uninstall -y opencv-python opencv-contrib-python \
-    && pip install --no-cache-dir opencv-python-headless
+    && pip install --force-reinstall --no-cache-dir opencv-python-headless
 
 COPY main.py .
 COPY app ./app
