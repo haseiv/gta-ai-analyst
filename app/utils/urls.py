@@ -11,6 +11,7 @@ PLATFORM_HOSTS = (
     "youtube-nocookie.com",
     "drive.google.com",
     "docs.google.com",
+    "drive.usercontent.google.com",
     "rutube.ru",
 )
 

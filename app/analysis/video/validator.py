@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.analysis.video.metadata import ProbeError, VideoMetadata, probe_video
+from app.analysis.video.sniff import is_webpage_payload
 
 SUPPORTED_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm"}
 
@@ -37,7 +38,13 @@ def validate_video_file(path: Path, max_mb: int) -> VideoMetadata:
         raise VideoValidationError("После скачивания файл не найден.")
     validate_extension(path.name)
     validate_size(path.stat().st_size, max_mb)
+    if is_webpage_payload(path):
+        raise VideoValidationError(
+            "Скачалась веб-страница, а не видео. Нужна открытая ссылка YouTube, Google Диск или Rutube."
+        )
     try:
         return probe_video(path)
     except ProbeError as exc:
-        raise VideoValidationError(str(exc)) from exc
+        raise VideoValidationError(
+            "Файл скачался, но это не видео. Проверь ссылку: YouTube, Google Диск, Rutube или прямой ролик."
+        ) from exc
