@@ -8,10 +8,11 @@ from pathlib import Path
 from app.agents.orchestrator import AgentOrchestrator
 from app.ai.base import AIProviderError, BaseAIProvider
 from app.ai.schemas import PipelinePayload
-from app.analysis.detection.base import BaseDetector
-from app.analysis.detection.yolo import YOLODetector
+from app.analysis.detection.base import BaseDetector, Detection
+from app.analysis.detection.yolo import YOLODetector, _resolve
 from app.analysis.events.engine import EventEngine
 from app.analysis.events.models import EventType, GameEvent
+from app.analysis.hud.majestic import MajesticHudTracker
 from app.analysis.metrics.engine import compute_metrics, compute_scores
 from app.analysis.motion import ScreenMotionAnalyzer
 from app.analysis.tracking.tracker import TrackStore
@@ -29,12 +30,27 @@ LIMITATIONS = [
     "Standard YOLO is not a GTA/FiveM specialist model.",
     "Screen coordinates are pixels, not GTA world meters.",
     "Map geometry and cover are not detected.",
-    "Crosshair, shots, damage, and kills are not detected.",
+    "Crosshair, damage, and individual target outcomes are not detected.",
 ]
 
 
 def default_detector_factory(settings: Settings) -> BaseDetector:
+    if not _resolve(settings.yolo_model_path).is_file():
+        return NoGameplayDetector()
     return YOLODetector(settings.yolo_model_path)
+
+
+class NoGameplayDetector(BaseDetector):
+    @property
+    def gameplay_capable(self) -> bool:
+        return False
+
+    @property
+    def profile(self) -> str:
+        return "no_gameplay_model"
+
+    def detect(self, frame) -> list[Detection]:
+        return []
 
 
 class AnalysisPipeline:
@@ -98,13 +114,15 @@ class AnalysisPipeline:
         detector_profile = detector.profile
         if not gameplay_capable:
             logger.warning(
-                "generic COCO detector detected analysis_id=%s; gameplay detections disabled",
+                "no suitable gameplay detector analysis_id=%s profile=%s; detections disabled",
                 analysis_id,
+                detector_profile,
             )
         detector.reset()
         store = TrackStore()
         events = EventEngine()
         motion = ScreenMotionAnalyzer()
+        hud = MajesticHudTracker()
         frame_count = 0
         last_logged = -10
 
@@ -115,6 +133,7 @@ class AnalysisPipeline:
                 source_fps=metadata.fps or None,
             ):
                 motion.update(timestamp, frame)
+                hud.update(timestamp, frame)
                 detections = detector.track(frame) if gameplay_capable else []
                 store.update(timestamp, detections)
                 events.on_frame(timestamp, detections)
@@ -133,6 +152,8 @@ class AnalysisPipeline:
         logger.info("CV completed analysis_id=%s frames=%s tracks=%s", analysis_id, frame_count, len(store.tracks))
         motion_stats = motion.stats()
         game_events = events.finalize(store.tracks)
+        hud_summary, hud_events = hud.finalize()
+        game_events.extend(hud_events)
         if motion_stats:
             for index, ts in enumerate(motion_stats["spike_times"], start=1):
                 game_events.append(
@@ -149,7 +170,7 @@ class AnalysisPipeline:
         limitations = list(LIMITATIONS)
         if not gameplay_capable:
             limitations.append(
-                "Gameplay detections are disabled because the installed model uses generic COCO classes."
+                "Gameplay detections are disabled because no suitable GTA/FiveM model is installed."
             )
         return PipelinePayload(
             analysis_id=analysis_id,
@@ -162,6 +183,7 @@ class AnalysisPipeline:
                 "analyzed_frames": frame_count,
                 "detector_profile": detector_profile,
                 "gameplay_analysis_available": gameplay_capable,
+                "hud_analysis": hud_summary,
             },
             metrics=[item.model_dump() for item in metrics],
             scores=[item.model_dump() for item in scores],

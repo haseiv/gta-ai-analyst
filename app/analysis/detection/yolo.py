@@ -12,7 +12,6 @@ logger = get_logger(__name__)
 
 _MODEL = None
 _MODEL_PATH: str | None = None
-_FALLBACK = "yolov8n.pt"
 _COCO_SIGNATURE = {"person", "car", "truck", "traffic light", "toothbrush"}
 
 
@@ -30,19 +29,10 @@ def _load_model(model_path: str):
     from ultralytics import YOLO
 
     resolved = _resolve(model_path)
-    if resolved.exists():
-        source = str(resolved)
-        logger.info("Loading YOLO model from %s", source)
-    else:
-        logger.warning("YOLO file %s is missing; downloading %s", resolved, _FALLBACK)
-        resolved.parent.mkdir(parents=True, exist_ok=True)
-        source = _FALLBACK
-    _MODEL = YOLO(source)
-    if source == _FALLBACK and not resolved.exists():
-        try:
-            _MODEL.save(str(resolved))
-        except Exception:
-            logger.warning("could not copy downloaded YOLO weights to %s", resolved)
+    if not resolved.is_file():
+        raise FileNotFoundError(f"YOLO model is missing: {resolved}")
+    logger.info("Loading YOLO model from %s", resolved)
+    _MODEL = YOLO(str(resolved))
     _MODEL_PATH = model_path
     return _MODEL
 

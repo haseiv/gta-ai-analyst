@@ -20,21 +20,46 @@ def build_local_coach_report(payload: PipelinePayload) -> dict:
     spikes = _metric(payload, "screen_motion_spikes") or _metric(payload, "direction_changes")
     stills = _metric(payload, "still_moments")
     gameplay_available = (payload.metadata or {}).get("gameplay_analysis_available", True)
+    hud = (payload.metadata or {}).get("hud_analysis") or {}
 
     if not gameplay_available:
-        summary = (
-            f"Видео {duration} технически прочитано ({frames} кадров), но игровой разбор отключён: "
-            "на сервере установлена обычная COCO-модель, а не модель, обученная на GTA/FiveM. "
-            "Она путала интерфейс и фон с целями, поэтому бот больше не выдаёт по её данным "
-            "оценки движения, позиционирования или осведомлённости."
-        )
+        if hud.get("available"):
+            summary = (
+                f"Видео {duration} прочитано ({frames} кадров). По интерфейсу Majestic "
+                f"замечен расход {hud['rounds_observed']} патронов и "
+                f"{hud['kills_observed']} увеличений счётчика убийств. "
+                "Это наблюдения по HUD, а не оценка меткости: попадания и судьбу "
+                "конкретного противника бот пока не видит."
+            )
+        else:
+            summary = (
+                f"Видео {duration} технически прочитано ({frames} кадров), но игровой разбор отключён: "
+                "на сервере нет модели, обученной на GTA/FiveM. "
+                "Обычная COCO-модель путала интерфейс и фон с целями, поэтому бот не выдаёт "
+                "оценки движения, позиционирования или осведомлённости."
+            )
         strengths = []
         mistakes = []
-        recommendations = [
-            "Установи веса GTA/FiveM YOLO и укажи путь в YOLO_MODEL_PATH.",
-            "До установки игровой модели бот может проверить видео только технически.",
-        ]
-        if spikes:
+        if hud.get("available"):
+            bursts = sorted(
+                (event for event in payload.events if event.get("type") == "BURST_NO_KILL"),
+                key=lambda event: event["metadata"]["rounds_observed"],
+                reverse=True,
+            )
+            recommendations = [
+                f"Пересмотри {format_timestamp(event['timestamp'])}: "
+                f"зафиксирован расход {event['metadata']['rounds_observed']} патронов "
+                "без роста счётчика убийств; проверь, удерживал ли ты цель в прицеле."
+                for event in bursts[:3]
+            ]
+            if not recommendations:
+                recommendations = ["По одному HUD нельзя оценить доводку прицела; нужен детектор игроков и попаданий."]
+        else:
+            recommendations = [
+                "Установи веса GTA/FiveM YOLO и укажи путь в YOLO_MODEL_PATH.",
+                "До установки игровой модели бот может проверить видео только технически.",
+            ]
+        if spikes and not hud.get("available"):
             recommendations.append(
                 f"В записи найдено {int(spikes)} резких изменений изображения; это наблюдение, не оценка игры."
             )

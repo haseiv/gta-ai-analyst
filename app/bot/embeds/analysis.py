@@ -27,6 +27,7 @@ EVENT_RU = {
     "RAPID_MOVEMENT": "Резкое изменение изображения",
     "DIRECTION_CHANGE": "Смена направления",
     "MULTIPLE_TARGETS_VISIBLE": "Несколько целей на экране",
+    "BURST_NO_KILL": "Расход патронов без роста счётчика убийств (HUD)",
 }
 
 
@@ -69,8 +70,16 @@ def _error_lines(result: dict) -> list[str]:
             for event in events
             if event.get("type") in EVENT_RU
         ]
+        interesting.sort(
+            key=lambda event: event.get("metadata", {}).get("rounds_observed", 0),
+            reverse=True,
+        )
         for event in interesting[:6]:
-            lines.append(f"{format_timestamp(event.get('timestamp'))} — {EVENT_RU.get(event.get('type'), event.get('type'))}")
+            label = EVENT_RU.get(event.get("type"), event.get("type"))
+            rounds = event.get("metadata", {}).get("rounds_observed")
+            if event.get("type") == "BURST_NO_KILL" and rounds:
+                label += f" — {rounds} патронов"
+            lines.append(f"{format_timestamp(event.get('timestamp'))} — {label}")
     return lines[:8]
 
 
@@ -116,9 +125,21 @@ def build_analysis_embeds(analysis_id: str, result: dict) -> list[discord.Embed]
     else:
         tracking = (
             "Игровой детектор не настроен.\n"
-            "Ложные цели универсальной COCO-модели скрыты."
+            "Непроверенные цели не показываются."
         )
     main.add_field(name="📈 ТРЕКИНГ", value=tracking, inline=False)
+    hud = metadata.get("hud_analysis") or {}
+    if hud.get("available"):
+        main.add_field(
+            name="🔫 ИНТЕРФЕЙС MAJESTIC",
+            value=(
+                f"Патронов израсходовано: {hud['rounds_observed']}\n"
+                f"Прирост убийств: {hud['kills_observed']}\n"
+                f"Серий стрельбы без прироста: {hud['bursts_without_kill']}\n"
+                "Попадания и доводка прицела не измерены."
+            ),
+            inline=False,
+        )
     embeds.append(main)
 
     errors = _error_lines(result)

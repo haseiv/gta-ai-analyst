@@ -10,7 +10,7 @@ from app.ai.base import AIProviderError, BaseAIProvider
 from app.ai.schemas import AgentResult, CoachReport, CriticResult, PipelinePayload
 from app.analysis.detection.base import BaseDetector, Detection
 from app.analysis.detection.yolo import YOLODetector
-from app.analysis.pipeline import AnalysisPipeline
+from app.analysis.pipeline import AnalysisPipeline, default_detector_factory
 from app.analysis.video.metadata import VideoMetadata
 from app.config.settings import Settings
 
@@ -53,6 +53,12 @@ def test_yolo_recognizes_generic_coco_profile():
     )
     assert detector.gameplay_capable is False
     assert detector.profile == "generic_coco"
+
+
+def test_missing_model_skips_yolo_download(tmp_path: Path):
+    detector = default_detector_factory(Settings(yolo_model_path=str(tmp_path / "missing.pt")))
+    assert detector.gameplay_capable is False
+    assert detector.profile == "no_gameplay_model"
 
 
 class FakeProvider(BaseAIProvider):

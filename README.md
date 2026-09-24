@@ -4,7 +4,11 @@ Discord bot that accepts a GTA V / FiveM clip, streams it through computer visio
 
 This is an MVP for a small VPS (~2 GB RAM). It does not load the full video into memory.
 Gameplay scores require custom GTA/FiveM YOLO weights. The automatically downloaded
-COCO fallback is accepted only for a runtime check and cannot produce gameplay claims.
+COCO model cannot produce gameplay claims; when no custom weights are installed,
+the bot skips YOLO entirely instead of downloading a misleading fallback.
+For the Majestic 1920×1200 HUD layout, OCR can separately report observed ammo
+consumption and increases in the kill counter. This is not an aim score or proof
+that a specific opponent was hit or finished.
 
 ## Architecture
 
@@ -137,9 +141,11 @@ CPU YOLO will be slow. That is expected on this hardware.
 - Aim cannot run without a crosshair detector
 - World coordinates are unknown
 - Screen distance is **not** meters
-- Shots, damage, kills, vehicle enter/exit are reserved event types and are not simulated
+- Majestic HUD OCR supports one known layout/aspect ratio; other HUDs stay unavailable
+- Damage, individual target outcomes, and vehicle enter/exit are not detected
 
-Next vision work: custom GTA dataset, HUD detection, crosshair tracking, kill/death/damage detectors, custom classes, GPU worker.
+Next vision work: annotated GTA frames, crosshair tracking, player/damage detectors,
+and validation across other resolutions before enabling an aim score.
 
 ## Custom GTA YOLO model
 
