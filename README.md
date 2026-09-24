@@ -77,8 +77,15 @@ cp .env.example .env
 | `DEVELOPER_USER_IDS` | Comma-separated Discord user ids |
 | `HUMAN_EXAMPLES_TOP_K` | Retrieved training examples per agent |
 | `LOG_LEVEL` | Logging level |
+| `YTDLP_COOKIES_FILE` | Path to a Netscape-format `cookies.txt` for restricted YouTube videos |
+| `YTDLP_COOKIES_BASE64` | Base64-encoded `cookies.txt`, convenient for Docker/cloud secrets |
 
 Never put secrets in Python files.
+
+For a Docker or cloud deployment, export fresh YouTube cookies in Netscape format,
+encode the file with `base64`, and put the result in the secret environment variable
+`YTDLP_COOKIES_BASE64`. Do not commit the value to GitHub. If
+`YTDLP_COOKIES_FILE` is used instead, the file must exist inside the container.
 
 ### YOLO model
 

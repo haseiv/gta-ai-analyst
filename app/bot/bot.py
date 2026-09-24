@@ -23,6 +23,7 @@ from app.services.cleanup import CleanupService
 from app.services.jobs import AnalysisJob, JobQueue, replay_expiry
 from app.services.replay import ReplayService
 from app.services.storage import LocalFileStorage
+from app.services.ytdlp import VideoDownloadError
 from app.utils.logging import get_logger
 from app.utils.time import utc_now
 
@@ -50,6 +51,8 @@ SAFE_ERRORS = {
 
 
 def public_error(exc: Exception) -> str:
+    if isinstance(exc, (VideoDownloadError, VideoValidationError)):
+        return str(exc)
     text = str(exc)
     for needle, message in SAFE_ERRORS.items():
         if needle in text:
@@ -120,6 +123,7 @@ class GTAAnalystBot(commands.Bot):
             dest,
             max_bytes,
             cookies_file=self.settings.ytdlp_cookies_file or None,
+            cookies_base64=self.settings.ytdlp_cookies_base64 or None,
         )
         job.video_path = str(dest)
         job.filename = dest.name

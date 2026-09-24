@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import binascii
+import os
 from pathlib import Path
 
 from app.utils.logging import get_logger
@@ -21,6 +24,11 @@ class VideoDownloadError(RuntimeError):
 
 def _friendly_error(text: str) -> str | None:
     lower = text.lower()
+    if "confirm you're not a bot" in lower or "confirm you’re not a bot" in lower:
+        return (
+            "YouTube требует авторизацию для проверки, что запрос делает не бот. "
+            "Обнови cookies через YTDLP_COOKIES_FILE или YTDLP_COOKIES_BASE64."
+        )
     if "confirm your age" in lower or "age-restricted" in lower or "sign in to confirm" in lower:
         return (
             "YouTube не отдаёт это видео без входа (возраст / 18+). "
@@ -31,10 +39,18 @@ def _friendly_error(text: str) -> str | None:
         return "Видео приватное. Сделай доступ по ссылке или положи cookies YouTube на сервер."
     if "video unavailable" in lower:
         return "YouTube пишет, что видео недоступно."
+    if "cookies are no longer valid" in lower or "cookies have expired" in lower:
+        return "Cookies YouTube устарели. Экспортируй свежие cookies и перезапусти бота."
     return None
 
 
-def download_platform_video(url: str, dest: Path, max_bytes: int, cookies_file: str | None = None) -> Path:
+def download_platform_video(
+    url: str,
+    dest: Path,
+    max_bytes: int,
+    cookies_file: str | None = None,
+    cookies_base64: str | None = None,
+) -> Path:
     """Download YouTube / Google Drive / Rutube. Writes to disk only."""
     from yt_dlp import YoutubeDL
     from yt_dlp.utils import DownloadError, UnsupportedError
@@ -42,6 +58,7 @@ def download_platform_video(url: str, dest: Path, max_bytes: int, cookies_file: 
     dest.parent.mkdir(parents=True, exist_ok=True)
     template = dest.with_suffix("")
     last_error: Exception | None = None
+    cookie_path = _prepare_cookies(cookies_file, cookies_base64, dest.parent)
 
     for fmt in _FORMATS:
         _cleanup_partial(template)
@@ -66,8 +83,8 @@ def download_platform_video(url: str, dest: Path, max_bytes: int, cookies_file: 
             "retries": 2,
             "progress_hooks": [hook],
         }
-        if cookies_file and Path(cookies_file).is_file():
-            opts["cookiefile"] = cookies_file
+        if cookie_path:
+            opts["cookiefile"] = str(cookie_path)
             logger.info("yt-dlp using cookies file")
         try:
             with YoutubeDL(opts) as client:
@@ -113,6 +130,38 @@ def download_platform_video(url: str, dest: Path, max_bytes: int, cookies_file: 
     if last_error:
         raise VideoDownloadError(_friendly_error(str(last_error)) or "Не удалось скачать видео по этой ссылке.") from last_error
     raise VideoDownloadError("Не удалось скачать видео по этой ссылке.")
+
+
+def _prepare_cookies(
+    cookies_file: str | None,
+    cookies_base64: str | None,
+    target_dir: Path,
+) -> Path | None:
+    if cookies_file:
+        path = Path(cookies_file).expanduser()
+        if not path.is_file():
+            raise VideoDownloadError(
+                f"Файл cookies не найден: {path}. Проверь YTDLP_COOKIES_FILE."
+            )
+        return path
+
+    if not cookies_base64:
+        return None
+
+    try:
+        payload = base64.b64decode(cookies_base64, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise VideoDownloadError("YTDLP_COOKIES_BASE64 содержит некорректный base64.") from exc
+    if not payload.strip():
+        raise VideoDownloadError("YTDLP_COOKIES_BASE64 пуст после декодирования.")
+
+    path = target_dir / "youtube-cookies.txt"
+    path.write_bytes(payload)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        logger.warning("could not restrict permissions on cookies file")
+    return path
 
 
 def _too_large(max_bytes: int) -> str:

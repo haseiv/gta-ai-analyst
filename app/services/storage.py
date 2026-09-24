@@ -30,17 +30,32 @@ class LocalFileStorage:
         dest: Path,
         max_bytes: int,
         cookies_file: str | None = None,
+        cookies_base64: str | None = None,
     ) -> Path:
         use_ytdlp = is_platform_url(url) or not is_direct_video_url(url)
         if use_ytdlp:
             logger.info("download via yt-dlp url_host")
-            return await asyncio.to_thread(download_platform_video, url, dest, max_bytes, cookies_file)
+            return await asyncio.to_thread(
+                download_platform_video,
+                url,
+                dest,
+                max_bytes,
+                cookies_file,
+                cookies_base64,
+            )
 
         await self.download(url, dest, max_bytes)
         if dest.exists() and is_html_or_text(read_head(dest)):
             logger.warning("direct download returned HTML; retrying with yt-dlp")
             dest.unlink(missing_ok=True)
-            return await asyncio.to_thread(download_platform_video, url, dest, max_bytes, cookies_file)
+            return await asyncio.to_thread(
+                download_platform_video,
+                url,
+                dest,
+                max_bytes,
+                cookies_file,
+                cookies_base64,
+            )
         return dest
 
     async def download(self, url: str, dest: Path, max_bytes: int) -> int:

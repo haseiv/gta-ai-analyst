@@ -35,6 +35,7 @@ class Settings(BaseModel):
     database_dir: Path = ROOT_DIR / "data" / "database"
     models_dir: Path = ROOT_DIR / "models"
     ytdlp_cookies_file: str = ""
+    ytdlp_cookies_base64: str = ""
 
     @field_validator("developer_user_ids", mode="before")
     @classmethod
@@ -84,6 +85,7 @@ def get_settings() -> Settings:
         ai_timeout_seconds=env_float("AI_TIMEOUT_SECONDS", 45.0),
         ai_max_retries=env_int("AI_MAX_RETRIES", 2),
         ytdlp_cookies_file=env_str("YTDLP_COOKIES_FILE"),
+        ytdlp_cookies_base64=env_str("YTDLP_COOKIES_BASE64"),
     )
     settings.ensure_runtime_dirs()
     return settings
