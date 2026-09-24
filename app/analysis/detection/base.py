@@ -23,6 +23,15 @@ class Detection:
 class BaseDetector(ABC):
     """Swap default.pt for a custom GTA model without changing the pipeline."""
 
+    @property
+    def gameplay_capable(self) -> bool:
+        """Whether detections are trained well enough to drive gameplay claims."""
+        return True
+
+    @property
+    def profile(self) -> str:
+        return "custom_gameplay"
+
     @abstractmethod
     def detect(self, frame: np.ndarray) -> list[Detection]:
         raise NotImplementedError

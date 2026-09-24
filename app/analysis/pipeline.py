@@ -94,6 +94,13 @@ class AnalysisPipeline:
         from app.analysis.video.reader import iter_sampled_frames
 
         detector = self.detector_factory(self.settings)
+        gameplay_capable = detector.gameplay_capable
+        detector_profile = detector.profile
+        if not gameplay_capable:
+            logger.warning(
+                "generic COCO detector detected analysis_id=%s; gameplay detections disabled",
+                analysis_id,
+            )
         detector.reset()
         store = TrackStore()
         events = EventEngine()
@@ -108,7 +115,7 @@ class AnalysisPipeline:
                 source_fps=metadata.fps or None,
             ):
                 motion.update(timestamp, frame)
-                detections = detector.track(frame)
+                detections = detector.track(frame) if gameplay_capable else []
                 store.update(timestamp, detections)
                 events.on_frame(timestamp, detections)
                 frame_count += 1
@@ -138,7 +145,12 @@ class AnalysisPipeline:
                     )
                 )
         metrics = compute_metrics(store.tracks, frame_count, motion_stats)
-        scores = compute_scores(metrics)
+        scores = compute_scores(metrics, gameplay_capable=gameplay_capable)
+        limitations = list(LIMITATIONS)
+        if not gameplay_capable:
+            limitations.append(
+                "Gameplay detections are disabled because the installed model uses generic COCO classes."
+            )
         return PipelinePayload(
             analysis_id=analysis_id,
             duration=metadata.duration,
@@ -148,10 +160,12 @@ class AnalysisPipeline:
                 "fps": metadata.fps,
                 "codec": metadata.codec,
                 "analyzed_frames": frame_count,
+                "detector_profile": detector_profile,
+                "gameplay_analysis_available": gameplay_capable,
             },
             metrics=[item.model_dump() for item in metrics],
             scores=[item.model_dump() for item in scores],
             events=[item.model_dump() for item in game_events],
             tracks=store.summaries(),
-            limitations=LIMITATIONS,
+            limitations=limitations,
         )

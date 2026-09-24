@@ -13,6 +13,7 @@ logger = get_logger(__name__)
 _MODEL = None
 _MODEL_PATH: str | None = None
 _FALLBACK = "yolov8n.pt"
+_COCO_SIGNATURE = {"person", "car", "truck", "traffic light", "toothbrush"}
 
 
 def _resolve(model_path: str) -> Path:
@@ -50,6 +51,16 @@ class YOLODetector(BaseDetector):
     def __init__(self, model_path: str) -> None:
         self.model_path = model_path
         self.model = _load_model(model_path)
+
+    @property
+    def gameplay_capable(self) -> bool:
+        names = getattr(self.model, "names", {}) or {}
+        class_names = {str(name).lower() for name in names.values()}
+        return not (len(class_names) >= 70 and _COCO_SIGNATURE.issubset(class_names))
+
+    @property
+    def profile(self) -> str:
+        return "custom_gameplay" if self.gameplay_capable else "generic_coco"
 
     def detect(self, frame: np.ndarray) -> list[Detection]:
         results = self.model.predict(frame, verbose=False, imgsz=640, conf=0.15)

@@ -24,7 +24,7 @@ SCORE_RU = {
 }
 
 EVENT_RU = {
-    "RAPID_MOVEMENT": "Резкое движение",
+    "RAPID_MOVEMENT": "Резкое изменение изображения",
     "DIRECTION_CHANGE": "Смена направления",
     "MULTIPLE_TARGETS_VISIBLE": "Несколько целей на экране",
 }
@@ -94,25 +94,38 @@ def build_analysis_embeds(analysis_id: str, result: dict) -> list[discord.Embed]
     scores = result.get("scores") or []
     metrics = result.get("metrics") or []
     coach = result.get("coach") or {}
+    metadata = result.get("metadata") or {}
+    gameplay_available = metadata.get("gameplay_analysis_available", True)
     embeds: list[discord.Embed] = []
 
     main = discord.Embed(title="🎮 РАЗБОР GTA AI", color=discord.Color.green())
     main.add_field(name="Анализ", value=f"#{analysis_id}", inline=True)
     main.add_field(name="Длительность", value=duration, inline=True)
-    main.add_field(name="📊 ОЦЕНКИ", value=_score_line(scores), inline=False)
-    tracking = (
-        f"Целей найдено: {_metric_value(metrics, 'targets_detected')}\n"
-        f"Смен направления: {_metric_value(metrics, 'direction_changes')}\n"
-        f"Средняя видимость: {_metric_value(metrics, 'average_target_visibility')}"
+    score_display = (
+        _score_line(scores)
+        if gameplay_available
+        else "Недоступны: на сервере нет модели, обученной на GTA/FiveM."
     )
+    main.add_field(name="📊 ОЦЕНКИ", value=score_display, inline=False)
+    if gameplay_available:
+        tracking = (
+            f"Целей найдено: {_metric_value(metrics, 'targets_detected')}\n"
+            f"Смен направления: {_metric_value(metrics, 'direction_changes')}\n"
+            f"Средняя видимость: {_metric_value(metrics, 'average_target_visibility')}"
+        )
+    else:
+        tracking = (
+            "Игровой детектор не настроен.\n"
+            "Ложные цели универсальной COCO-модели скрыты."
+        )
     main.add_field(name="📈 ТРЕКИНГ", value=tracking, inline=False)
     embeds.append(main)
 
     errors = _error_lines(result)
     extra = discord.Embed(color=discord.Color.green())
     extra.add_field(
-        name="⚠️ ОШИБКИ",
-        value="\n".join(errors)[:EMBED_LIMIT] if errors else "Явных ошибок по текущим детекторам нет.",
+        name="⚠️ НАБЛЮДЕНИЯ",
+        value="\n".join(errors)[:EMBED_LIMIT] if errors else "Подтверждённых игровых ошибок нет.",
         inline=False,
     )
     strengths = coach.get("strengths") or []

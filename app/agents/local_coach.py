@@ -19,8 +19,26 @@ def build_local_coach_report(payload: PipelinePayload) -> dict:
     activity = _metric(payload, "movement_activity")
     spikes = _metric(payload, "screen_motion_spikes") or _metric(payload, "direction_changes")
     stills = _metric(payload, "still_moments")
+    gameplay_available = (payload.metadata or {}).get("gameplay_analysis_available", True)
 
-    if activity is None and tracks == 0:
+    if not gameplay_available:
+        summary = (
+            f"Видео {duration} технически прочитано ({frames} кадров), но игровой разбор отключён: "
+            "на сервере установлена обычная COCO-модель, а не модель, обученная на GTA/FiveM. "
+            "Она путала интерфейс и фон с целями, поэтому бот больше не выдаёт по её данным "
+            "оценки движения, позиционирования или осведомлённости."
+        )
+        strengths = []
+        mistakes = []
+        recommendations = [
+            "Установи веса GTA/FiveM YOLO и укажи путь в YOLO_MODEL_PATH.",
+            "До установки игровой модели бот может проверить видео только технически.",
+        ]
+        if spikes:
+            recommendations.append(
+                f"В записи найдено {int(spikes)} резких изменений изображения; это наблюдение, не оценка игры."
+            )
+    elif activity is None and tracks == 0:
         summary = (
             f"Ролик {duration} скачан на сервер и прочитан ({frames} кадров), "
             "но движения по кадрам почти нет — запись слишком статичная или битая."
@@ -38,7 +56,7 @@ def build_local_coach_report(payload: PipelinePayload) -> dict:
             f"Откат {duration} скачан на хост и разобран по кадрам ({frames} шт.). "
             f"Экранная активность {pace}. "
             "Это не метры в мире GTA и не прицел — только то, как шевелится картинка. "
-            "Стоковый YOLO людей и машины в FiveM почти не видит, поэтому киллы и укрытия не ставлю."
+            "Киллы, попадания и укрытия текущие детекторы не измеряют."
         )
         strengths = []
         if stills and stills >= 8:

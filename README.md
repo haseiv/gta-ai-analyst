@@ -2,7 +2,9 @@
 
 Discord bot that accepts a GTA V / FiveM clip, streams it through computer vision and tracking, then returns a readable coach-style breakdown.
 
-This is a working MVP for a small VPS (~2 GB RAM). It does not load the full video into memory.
+This is an MVP for a small VPS (~2 GB RAM). It does not load the full video into memory.
+Gameplay scores require custom GTA/FiveM YOLO weights. The automatically downloaded
+COCO fallback is accepted only for a runtime check and cannot produce gameplay claims.
 
 ## Architecture
 
@@ -89,9 +91,10 @@ encode the file with `base64`, and put the result in the secret environment vari
 
 ### YOLO model
 
-Download an Ultralytics `.pt` file (for example YOLOv8n) to `models/default.pt`.
-
-This default model is **not** a GTA/FiveM model. Detection quality on game footage will be limited until you train a custom model.
+Put GTA/FiveM-trained Ultralytics `.pt` weights in `models/gta_custom.pt` and set
+`YOLO_MODEL_PATH=models/gta_custom.pt`. A stock YOLOv8 COCO checkpoint is **not**
+a gameplay model: the bot detects it automatically, skips its false tracks, and
+leaves gameplay scores unavailable instead of inventing an analysis.
 
 ### AI API
 

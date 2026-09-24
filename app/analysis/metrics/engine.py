@@ -99,14 +99,14 @@ def _score(name: str, value: float | None, confidence: float, status: str | None
     return Score(name=name, value=round(min(10.0, max(0.0, value)), 1), confidence=confidence, status=status or "ok")
 
 
-def compute_scores(metrics: list[Metric]) -> list[Score]:
+def compute_scores(metrics: list[Metric], gameplay_capable: bool = True) -> list[Score]:
     by_name = {metric.name: metric for metric in metrics}
 
     movement = None
     movement_conf = 0.0
     activity = by_name.get("movement_activity")
     consistency = by_name.get("movement_consistency")
-    if activity and activity.value is not None and consistency and consistency.value is not None:
+    if gameplay_capable and activity and activity.value is not None and consistency and consistency.value is not None:
         # Screen-space heuristic only. Not world-space skill rating.
         if activity.value <= 80:
             normalized_activity = min(activity.value / 18.0, 1.0)

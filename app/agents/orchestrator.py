@@ -31,6 +31,12 @@ class AgentOrchestrator:
         self.critic = CriticAgent(provider)
 
     async def run(self, payload: PipelinePayload) -> dict:
+        if not (payload.metadata or {}).get("gameplay_analysis_available", True):
+            logger.warning(
+                "gameplay analysis unavailable analysis_id=%s; suppressing AI gameplay claims",
+                payload.analysis_id,
+            )
+            return build_local_coach_report(payload)
         if isinstance(self.provider, HTTPAIProvider) and not self.provider.available():
             logger.info("AI provider is not configured, using local coach text")
             return build_local_coach_report(payload)
