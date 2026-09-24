@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Callable
 from pathlib import Path
@@ -56,6 +57,40 @@ class AnalysisPipeline:
         metadata: VideoMetadata,
         on_progress: ProgressCallback | None = None,
     ) -> dict:
+        # OpenCV decoding and YOLO inference are synchronous CPU/GPU work. Running
+        # them on the Discord event-loop thread prevents gateway heartbeats from
+        # being sent and eventually disconnects the bot.
+        payload = await asyncio.to_thread(
+            self._run_cv,
+            analysis_id,
+            video_path,
+            metadata,
+            on_progress,
+        )
+
+        if on_progress:
+            on_progress(92.0)
+
+        orchestrator = AgentOrchestrator(self.provider, self.knowledge)
+        try:
+            ai_result = await orchestrator.run(payload)
+        except AIProviderError:
+            logger.warning("AI coach unavailable analysis_id=%s; keeping CV result", analysis_id)
+            ai_result = orchestrator.fallback(payload)
+
+        if on_progress:
+            on_progress(100.0)
+        result = payload.model_dump()
+        result.update(ai_result)
+        return json.loads(json.dumps(result))
+
+    def _run_cv(
+        self,
+        analysis_id: str,
+        video_path: Path,
+        metadata: VideoMetadata,
+        on_progress: ProgressCallback | None,
+    ) -> PipelinePayload:
         from app.analysis.video.reader import iter_sampled_frames
 
         detector = self.detector_factory(self.settings)
@@ -104,7 +139,7 @@ class AnalysisPipeline:
                 )
         metrics = compute_metrics(store.tracks, frame_count, motion_stats)
         scores = compute_scores(metrics)
-        payload = PipelinePayload(
+        return PipelinePayload(
             analysis_id=analysis_id,
             duration=metadata.duration,
             metadata={
@@ -120,18 +155,3 @@ class AnalysisPipeline:
             tracks=store.summaries(),
             limitations=LIMITATIONS,
         )
-        if on_progress:
-            on_progress(92.0)
-
-        orchestrator = AgentOrchestrator(self.provider, self.knowledge)
-        try:
-            ai_result = await orchestrator.run(payload)
-        except AIProviderError:
-            logger.warning("AI coach unavailable analysis_id=%s; keeping CV result", analysis_id)
-            ai_result = orchestrator.fallback(payload)
-
-        if on_progress:
-            on_progress(100.0)
-        result = payload.model_dump()
-        result.update(ai_result)
-        return json.loads(json.dumps(result))

@@ -1,4 +1,5 @@
 from pathlib import Path
+import threading
 
 import numpy as np
 import pytest
@@ -67,3 +68,35 @@ async def test_pipeline_keeps_cv_when_ai_down(monkeypatch, tmp_path: Path):
     assert result["ai_available"] is False
     assert result["metrics"]
     assert result["coach"]["summary"]
+
+
+@pytest.mark.asyncio
+async def test_pipeline_runs_cv_outside_event_loop_thread(monkeypatch, tmp_path: Path):
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"0")
+    event_loop_thread = threading.get_ident()
+    detector_threads: list[int] = []
+
+    def fake_frames(_path, _fps, source_fps=None):
+        yield 0.0, np.zeros((32, 32, 3), dtype=np.uint8)
+
+    class ThreadRecordingDetector(FakeDetector):
+        def detect(self, frame):
+            detector_threads.append(threading.get_ident())
+            return super().detect(frame)
+
+    monkeypatch.setattr("app.analysis.video.reader.iter_sampled_frames", fake_frames)
+    pipeline = AnalysisPipeline(
+        Settings(),
+        FakeProvider(),
+        detector_factory=lambda _settings: ThreadRecordingDetector(),
+    )
+
+    await pipeline.run(
+        "A10",
+        video,
+        VideoMetadata(1.0, 32, 32, 5.0, "h264"),
+    )
+
+    assert detector_threads
+    assert detector_threads[0] != event_loop_thread
