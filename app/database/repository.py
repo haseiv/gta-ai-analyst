@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
-from app.database.models import Analysis, Replay, TrainingExample
+from app.database.models import Analysis, DistilledExample, Replay, TrainingExample
 from app.database.session import session_scope
 from app.utils.time import utc_now
 
@@ -146,6 +146,9 @@ class TrainingRepository:
             row = session.get(TrainingExample, example_id)
             if row is None:
                 return False
+            session.execute(
+                delete(DistilledExample).where(DistilledExample.training_example_id == example_id)
+            )
             session.delete(row)
             return True
 
@@ -171,3 +174,38 @@ class TrainingRepository:
             for row in rows:
                 session.expunge(row)
             return rows
+
+
+class DistilledExampleRepository:
+    def create(self, example: DistilledExample) -> DistilledExample:
+        with session_scope() as session:
+            session.add(example)
+            session.flush()
+            session.refresh(example)
+            session.expunge(example)
+            return example
+
+    def by_category(self, category: str, limit: int = 200) -> list[DistilledExample]:
+        with session_scope() as session:
+            rows = list(
+                session.scalars(
+                    select(DistilledExample)
+                    .where(DistilledExample.category == category)
+                    .order_by(DistilledExample.created_at.desc())
+                    .limit(limit)
+                )
+            )
+            for row in rows:
+                session.expunge(row)
+            return rows
+
+    def categories(self) -> list[str]:
+        with session_scope() as session:
+            return list(session.scalars(select(DistilledExample.category).distinct()))
+
+    def count(self, category: str | None = None) -> int:
+        with session_scope() as session:
+            query = select(DistilledExample)
+            if category is not None:
+                query = query.where(DistilledExample.category == category)
+            return len(list(session.scalars(query)))

@@ -4,6 +4,9 @@ from typing import TYPE_CHECKING
 
 import discord
 
+from app.ai.base import AIProviderError
+from app.bot.permissions import deny_if_not_developer
+from app.learning.student import TrainingDistillationService
 from app.learning.training_examples import TrainingService
 from app.utils.logging import get_logger
 from app.utils.time import format_timestamp
@@ -35,9 +38,11 @@ class TrainingModal(discord.ui.Modal, title="Мой разбор"):
         self.end = end
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
-        if not self.bot.settings.is_developer(interaction.user.id):
-            await interaction.response.send_message("Только для разработчиков.", ephemeral=True)
+        reason = deny_if_not_developer(interaction, self.bot.settings)
+        if reason:
+            await interaction.response.send_message(reason, ephemeral=True)
             return
+        await interaction.response.defer(ephemeral=True)
         example = TrainingService().add(
             analysis_id=self.analysis_id,
             created_by=interaction.user.id,
@@ -49,10 +54,22 @@ class TrainingModal(discord.ui.Modal, title="Мой разбор"):
             timestamp_end=self.end,
         )
         logger.info("training example creation id=%s analysis_id=%s", example.id, self.analysis_id)
-        await interaction.response.send_message(
-            f"Сохранён пример #{example.id} для анализа #{self.analysis_id}.",
-            ephemeral=True,
-        )
+        try:
+            label, count = await TrainingDistillationService(
+                self.bot.provider,
+                analyses=self.bot.analyses,
+            ).distill(example)
+            message = (
+                f"Сохранён пример #{example.id}. Qwen подготовил метку {label.score:.1f}/10 "
+                f"для локального ученика. В категории {example.category}: {count} прим. "
+                "Прогноз включается после трёх подтверждённых примеров."
+            )
+        except (AIProviderError, ValueError) as exc:
+            logger.warning("teacher distillation failed example_id=%s: %s", example.id, exc)
+            message = (
+                f"Сохранён пример #{example.id}, но метка локального ученика не создана: {exc}"
+            )
+        await interaction.followup.send(message, ephemeral=True)
 
 
 class TrainingAddView(discord.ui.View):
@@ -74,9 +91,10 @@ class TrainingAddView(discord.ui.View):
         self.default_category = default_category
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if self.bot.settings.is_developer(interaction.user.id):
+        reason = deny_if_not_developer(interaction, self.bot.settings)
+        if reason is None:
             return True
-        await interaction.response.send_message("Только для разработчиков.", ephemeral=True)
+        await interaction.response.send_message(reason, ephemeral=True)
         return False
 
     @discord.ui.button(label="✅ Добавить как есть", style=discord.ButtonStyle.success)
@@ -93,7 +111,10 @@ class TrainingAddView(discord.ui.View):
         )
         logger.info("training example creation id=%s analysis_id=%s", example.id, self.analysis_id)
         await interaction.response.edit_message(
-            content=f"Сохранён пример #{example.id} ({format_timestamp(self.start)}–{format_timestamp(self.end)}).",
+            content=(
+                f"Сохранён пример #{example.id} ({format_timestamp(self.start)}–{format_timestamp(self.end)}) "
+                "для подсказок Qwen. Локальный ученик не обучен: для него выбери «Мой разбор»."
+            ),
             embed=None,
             view=None,
         )

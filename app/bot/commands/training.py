@@ -9,7 +9,7 @@ from discord.ext import commands
 
 from app.bot.permissions import deny_if_not_developer
 from app.bot.views.training import TrainingAddView
-from app.database.repository import TrainingRepository
+from app.database.repository import DistilledExampleRepository, TrainingRepository
 from app.utils.time import format_timestamp, parse_timestamp
 
 if TYPE_CHECKING:
@@ -20,6 +20,7 @@ class TrainingCog(commands.Cog):
     def __init__(self, bot: GTAAnalystBot) -> None:
         self.bot = bot
         self.training = TrainingRepository()
+        self.distilled = DistilledExampleRepository()
 
     async def _guard(self, interaction: discord.Interaction) -> bool:
         reason = deny_if_not_developer(interaction, self.bot.settings)
@@ -96,9 +97,11 @@ class TrainingCog(commands.Cog):
         if not await self._guard(interaction):
             return
         stats = self.training.stats()
+        student_total = self.distilled.count()
         embed = discord.Embed(title="🧠 БАЗА ЗНАНИЙ GTA AI", color=discord.Color.purple())
         embed.add_field(name="Примеров", value=str(stats.get("total", 0)), inline=False)
         for category in ("Movement", "Positioning", "Awareness", "Combat", "Aim", "General"):
             embed.add_field(name=category, value=str(stats.get(category, 0)), inline=True)
-        embed.add_field(name="Версия датасета", value="v1", inline=False)
+        embed.add_field(name="Метки локального ученика", value=str(student_total), inline=False)
+        embed.add_field(name="Версия датасета", value="v2-teacher-student", inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)

@@ -141,6 +141,21 @@ def build_analysis_embeds(analysis_id: str, result: dict) -> list[discord.Embed]
             "Непроверенные цели не показываются."
         )
     main.add_field(name="📈 ТРЕКИНГ", value=tracking, inline=False)
+    student_predictions = result.get("student_predictions") or []
+    if student_predictions:
+        lines = []
+        for prediction in student_predictions[:5]:
+            category = SCORE_RU.get(prediction.get("category"), prediction.get("category"))
+            lines.append(
+                f"{category}: {prediction['score']}/10 "
+                f"(уверенность {int(prediction['confidence'] * 100)}%, "
+                f"база {prediction['dataset_size']} прим.)"
+            )
+        main.add_field(
+            name="🧠 ЛОКАЛЬНЫЙ УЧЕНИК",
+            value="\n".join(lines) + "\nПредварительный прогноз по твоим подтверждённым разборам.",
+            inline=False,
+        )
     if hud.get("available"):
         if hud.get("profile") == "majestic_capt":
             main.add_field(

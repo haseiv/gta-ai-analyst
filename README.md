@@ -127,7 +127,19 @@ python main.py
 | `/train_remove` | Developers / server admins | Delete an example |
 | `/train_stats` | Developers / server admins | Category counts |
 
-The main bot never asks users to confirm an analysis. Learning is developer-only and never auto-trains on AI output.
+The main bot never auto-confirms its own analysis. Learning controls are limited to
+configured developers and Discord server administrators.
+
+### Teacher–student learning
+
+Use `/train_add`, choose **Мой разбор**, set category `Aim` (Russian `Прицел`
+and `Трекинг` are accepted), and write the human verdict. Qwen only normalizes
+that approved review into a structured label; it is never allowed to approve its
+own earlier answer. A small local k-nearest-neighbour student learns the mapping
+from local CV/HUD features to those labels. It stays silent until a category has
+at least three distilled examples and shows its dataset size and confidence in
+the Discord report. **Добавить как есть** remains Qwen context only and cannot
+train the local student.
 
 ## Server requirements
 

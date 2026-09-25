@@ -55,3 +55,17 @@ class TrainingExample(Base):
     dataset_version: Mapped[str] = mapped_column(String(32), default="v1")
     created_by: Mapped[int] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class DistilledExample(Base):
+    __tablename__ = "distilled_examples"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    training_example_id: Mapped[int] = mapped_column(
+        ForeignKey("training_examples.id"), unique=True, index=True
+    )
+    analysis_id: Mapped[str] = mapped_column(String(16), index=True)
+    category: Mapped[str] = mapped_column(String(64), index=True)
+    features_json: Mapped[str] = mapped_column(Text)
+    teacher_label_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

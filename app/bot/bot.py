@@ -19,6 +19,7 @@ from app.config.settings import Settings
 from app.database.repository import AnalysisRepository, ReplayRepository
 from app.database.session import init_db
 from app.learning.knowledge import CoachKnowledgeBase
+from app.learning.student import LocalStudent
 from app.services.cleanup import CleanupService
 from app.services.jobs import AnalysisJob, JobQueue, replay_expiry
 from app.services.replay import ReplayService
@@ -151,6 +152,7 @@ class GTAAnalystBot(commands.Bot):
                 self.analyses.update(job.analysis_id, progress=value, status=status)
 
         result = await self.pipeline.run(job.analysis_id, dest, metadata, on_progress)
+        result["student_predictions"] = LocalStudent().predict_all(result)
         self._set_job(job, "COMPLETED", 100)
         self.analyses.update(
             job.analysis_id,
