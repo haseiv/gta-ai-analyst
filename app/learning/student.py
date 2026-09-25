@@ -21,27 +21,68 @@ class TeacherLabel(BaseModel):
     recommendation: str = ""
 
 
-def extract_features(result: dict) -> dict[str, float]:
-    duration_minutes = max(float(result.get("duration") or 0) / 60.0, 0.1)
+def extract_features(
+    result: dict,
+    timestamp_start: float | None = None,
+    timestamp_end: float | None = None,
+) -> dict[str, float]:
+    segment_scoped = timestamp_start is not None or timestamp_end is not None
+    start = max(float(timestamp_start or 0), 0.0)
+    video_duration = max(float(result.get("duration") or 0), 0.0)
+    end = float(timestamp_end) if timestamp_end is not None else video_duration
+    if end <= start:
+        end = start + 1.0
+    duration_seconds = end - start if segment_scoped else video_duration
+    duration_minutes = max(duration_seconds / 60.0, 0.1)
     metadata = result.get("metadata") or {}
     hud = metadata.get("hud_analysis") or {}
     events = result.get("events") or []
+    scoped_events = [
+        event
+        for event in events
+        if not segment_scoped or start <= float(event.get("timestamp") or 0) <= end
+    ]
     metrics = {
         str(item.get("name")): float(item.get("value"))
         for item in result.get("metrics") or []
         if item.get("value") is not None and item.get("status") != "insufficient_data"
     }
+    if segment_scoped:
+        kills = [event for event in scoped_events if str(event.get("type", "")).upper() == "KILL"]
+        misses = [
+            event for event in scoped_events if str(event.get("type", "")).upper() == "BURST_NO_KILL"
+        ]
+        rounds = sum(
+            float((event.get("metadata") or {}).get("rounds_in_previous_4s") or 0)
+            for event in kills
+        ) + sum(
+            float((event.get("metadata") or {}).get("rounds_observed") or 0)
+            for event in misses
+        )
+        kill_count = len(kills)
+        unconverted_count = len(misses)
+        finish_score = 0.0
+        movement_activity = 0.0
+    else:
+        rounds = float(hud.get("rounds_observed") or 0)
+        kill_count = float(hud.get("player_kills") or hud.get("kills_observed") or 0)
+        unconverted_count = len(hud.get("unconverted_bursts") or [])
+        finish_score = float(hud.get("finish_score") or 0) / 10.0
+        movement_activity = min(float(metrics.get("movement_activity", 0)) / 30.0, 3.0)
     return {
-        "rounds_per_min": min(float(hud.get("rounds_observed") or 0) / duration_minutes / 100.0, 3.0),
-        "kills_per_min": min(float(hud.get("player_kills") or hud.get("kills_observed") or 0) / duration_minutes / 10.0, 3.0),
-        "finish_score": float(hud.get("finish_score") or 0) / 10.0,
-        "unconverted_per_min": min(len(hud.get("unconverted_bursts") or []) / duration_minutes / 5.0, 3.0),
+        "rounds_per_min": min(rounds / duration_minutes / 100.0, 3.0),
+        "kills_per_min": min(kill_count / duration_minutes / 10.0, 3.0),
+        "finish_score": finish_score,
+        "unconverted_per_min": min(unconverted_count / duration_minutes / 5.0, 3.0),
         "rapid_per_min": min(
-            sum(event.get("type") == "RAPID_MOVEMENT" for event in events) / duration_minutes / 20.0,
+            sum(str(event.get("type", "")).upper() == "RAPID_MOVEMENT" for event in scoped_events)
+            / duration_minutes
+            / 20.0,
             3.0,
         ),
-        "movement_activity": min(float(metrics.get("movement_activity", 0)) / 30.0, 3.0),
+        "movement_activity": movement_activity,
         "has_combat_hud": 1.0 if hud.get("available") else 0.0,
+        "segment_scope": 1.0 if segment_scoped else 0.0,
     }
 
 
@@ -63,7 +104,7 @@ class TrainingDistillationService:
         if analysis is None or not analysis.result_json:
             raise ValueError("Исходный результат анализа не найден.")
         result = json.loads(analysis.result_json)
-        features = extract_features(result)
+        features = extract_features(result, example.timestamp_start, example.timestamp_end)
         prompt = json.dumps(
             {
                 "task": (

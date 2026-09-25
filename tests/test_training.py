@@ -4,7 +4,7 @@ from app.ai.base import BaseAIProvider
 from app.database.repository import AnalysisRepository, DistilledExampleRepository
 from app.database.repository import TrainingRepository
 from app.learning.knowledge import CoachKnowledgeBase
-from app.learning.student import LocalStudent, TeacherLabel, TrainingDistillationService
+from app.learning.student import LocalStudent, TeacherLabel, TrainingDistillationService, extract_features
 from app.learning.training_examples import TrainingService
 
 
@@ -95,3 +95,34 @@ async def test_qwen_teacher_distills_human_reviews_for_local_student(isolated_db
     assert prediction["status"] == "local_student_knn"
     assert TrainingRepository().delete(1) is True
     assert distilled.count("Aim") == 2
+
+
+def test_segment_features_only_use_events_inside_review_window():
+    result = {
+        "duration": 120,
+        "metadata": {
+            "hud_analysis": {
+                "available": True,
+                "rounds_observed": 200,
+                "player_kills": 20,
+                "finish_score": 9.0,
+                "unconverted_bursts": [{"timestamp": 90, "rounds": 30}],
+            }
+        },
+        "metrics": [{"name": "movement_activity", "value": 25}],
+        "events": [
+            {"type": "KILL", "timestamp": 12, "metadata": {"rounds_in_previous_4s": 6}},
+            {"type": "BURST_NO_KILL", "timestamp": 70, "metadata": {"rounds_observed": 20}},
+            {"type": "RAPID_MOVEMENT", "timestamp": 75, "metadata": {}},
+        ],
+    }
+
+    features = extract_features(result, 10, 20)
+
+    assert features["segment_scope"] == 1.0
+    assert features["kills_per_min"] == 0.6
+    assert features["rounds_per_min"] == 0.36
+    assert features["unconverted_per_min"] == 0.0
+    assert features["rapid_per_min"] == 0.0
+    assert features["finish_score"] == 0.0
+    assert features["movement_activity"] == 0.0
