@@ -7,9 +7,13 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from app.ai.base import AIProviderError
 from app.bot.permissions import deny_if_not_developer
 from app.bot.views.training import TrainingAddView
 from app.database.repository import DistilledExampleRepository, TrainingRepository
+from app.learning.manifest import ManifestError, parse_training_manifest
+from app.learning.student import TrainingDistillationService
+from app.learning.training_examples import TrainingService
 from app.utils.time import format_timestamp, parse_timestamp
 
 if TYPE_CHECKING:
@@ -67,6 +71,88 @@ class TrainingCog(commands.Cog):
             ephemeral=True,
             view=TrainingAddView(self.bot, analysis_id, ai_analysis, start_ts, end_ts, "General"),
         )
+
+    @app_commands.command(name="train_manifest", description="Импортировать ручные разборы из JSONL")
+    @app_commands.describe(
+        analysis_id="Номер уже завершённого анализа",
+        manifest="JSONL-файл с разборами одного ролика",
+    )
+    async def train_manifest(
+        self,
+        interaction: discord.Interaction,
+        analysis_id: str,
+        manifest: discord.Attachment,
+    ) -> None:
+        if not await self._guard(interaction):
+            return
+        analysis_id = analysis_id.strip().upper()
+        row = self.bot.analyses.get(analysis_id)
+        if row is None or row.status != "COMPLETED" or not row.result_json:
+            await interaction.response.send_message("Готовый анализ не найден.", ephemeral=True)
+            return
+        if manifest.size > 512 * 1024:
+            await interaction.response.send_message("Манифест больше 512 КБ.", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            items = parse_training_manifest(await manifest.read())
+        except (ManifestError, discord.HTTPException) as exc:
+            await interaction.followup.send(str(exc), ephemeral=True)
+            return
+
+        sources = {item.source.casefold() for item in items if item.source.strip()}
+        if len(sources) > 1:
+            await interaction.followup.send(
+                "В файле несколько роликов. Загрузи манифест только для одного ролика, "
+                "чтобы разборы не привязались к неправильному анализу.",
+                ephemeral=True,
+            )
+            return
+        conflicting_ids = {
+            item.analysis_id.strip().upper()
+            for item in items
+            if item.analysis_id and item.analysis_id.strip().upper() != analysis_id
+        }
+        if conflicting_ids:
+            await interaction.followup.send(
+                "В манифесте указан другой analysis_id: " + ", ".join(sorted(conflicting_ids)),
+                ephemeral=True,
+            )
+            return
+
+        result = json.loads(row.result_json)
+        ai_analysis = (result.get("coach") or {}).get("summary") or "Итог ИИ не сохранён."
+        training = TrainingService(self.training)
+        teacher = TrainingDistillationService(self.bot.provider, analyses=self.bot.analyses)
+        saved = 0
+        distilled = 0
+        failures: list[str] = []
+        for index, item in enumerate(items, 1):
+            example = training.add(
+                analysis_id=analysis_id,
+                created_by=interaction.user.id,
+                category=item.category,
+                ai_analysis=ai_analysis,
+                human_analysis=item.human_analysis,
+                recommendation=item.recommendation,
+                timestamp_start=item.start,
+                timestamp_end=item.end,
+                dataset_version="v3-segment-manifest",
+            )
+            saved += 1
+            try:
+                await teacher.distill(example)
+                distilled += 1
+            except (AIProviderError, ValueError) as exc:
+                failures.append(f"строка {index}: {exc}")
+
+        message = (
+            f"Импорт завершён для #{analysis_id}: сохранено {saved}, "
+            f"Qwen-меток создано {distilled}."
+        )
+        if failures:
+            message += "\nНе размечено: " + "; ".join(failures[:5])
+        await interaction.followup.send(message, ephemeral=True)
 
     @app_commands.command(name="train_list", description="Список примеров в базе знаний")
     async def train_list(self, interaction: discord.Interaction) -> None:

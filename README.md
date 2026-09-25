@@ -146,6 +146,13 @@ at least three distilled examples and shows its dataset size and confidence in
 the Discord report. **Добавить как есть** remains Qwen context only and cannot
 train the local student.
 
+For several reviewed moments from the same completed video, use
+`/train_manifest analysis_id:<ID> manifest:<file.jsonl>`. Each non-empty JSONL
+line must contain `start`, `end`, `category`, `human_analysis`, and optionally
+`recommendation`. A manifest may describe only one source video. The bot saves
+each human review and asks Qwen to normalize it into a segment-scoped label for
+the local student. Imports are limited to 25 examples and 512 KB per command.
+
 ## Server requirements
 
 - Linux VPS with ~2 GB RAM
