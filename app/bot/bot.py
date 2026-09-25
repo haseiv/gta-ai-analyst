@@ -150,7 +150,9 @@ class GTAAnalystBot(commands.Bot):
             if int(value) % 15 == 0:
                 self.analyses.update(job.analysis_id, progress=value, status=status)
 
-        result = await self.pipeline.run(job.analysis_id, dest, metadata, on_progress)
+        result = await self.pipeline.run(
+            job.analysis_id, dest, metadata, on_progress, player_name=job.player_name
+        )
         self._set_job(job, "COMPLETED", 100)
         self.analyses.update(
             job.analysis_id,

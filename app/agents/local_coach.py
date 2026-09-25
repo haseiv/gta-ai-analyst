@@ -23,7 +23,21 @@ def build_local_coach_report(payload: PipelinePayload) -> dict:
     hud = (payload.metadata or {}).get("hud_analysis") or {}
 
     if not gameplay_available:
-        if hud.get("available"):
+        if hud.get("available") and hud.get("profile") == "majestic_capt":
+            player_kills = hud.get("player_kills")
+            if player_kills is None:
+                kill_text = (
+                    f"В ленте есть {hud['kill_feed_entries']} записей об убийствах; "
+                    "без игрового ника нельзя приписать их автору записи."
+                )
+            else:
+                kill_text = f"OCR подтвердил минимум {player_kills} записей об убийствах с твоим ником."
+            summary = (
+                f"Капт {duration} прочитан ({frames} кадров). По интерфейсу Majestic "
+                f"замечен расход {hud['rounds_observed']} патронов. {kill_text} "
+                "Траекторию прицела и отдельные попадания бот пока не измеряет."
+            )
+        elif hud.get("available"):
             summary = (
                 f"Видео {duration} прочитано ({frames} кадров). По интерфейсу Majestic "
                 f"замечен расход {hud['rounds_observed']} патронов и "
@@ -40,7 +54,20 @@ def build_local_coach_report(payload: PipelinePayload) -> dict:
             )
         strengths = []
         mistakes = []
-        if hud.get("available"):
+        if hud.get("available") and hud.get("profile") == "majestic_capt":
+            rated = hud.get("rated_engagements") or []
+            if rated:
+                best = rated[0]
+                strengths.append(
+                    f"{format_timestamp(best['timestamp'])}: подтверждено убийство {best['victim']} "
+                    f"после расхода примерно {best['rounds_in_previous_4s']} патронов за 4 секунды."
+                )
+            recommendations = [
+                "Оценка завершения боя предварительная: она учитывает только ленту убийств и патроны, не технику прицеливания.",
+            ]
+            if not hud.get("player_name"):
+                recommendations.insert(0, "Укажи свой игровой ник при отправке ролика, чтобы отделить твои убийства от чужих.")
+        elif hud.get("available"):
             bursts = sorted(
                 (event for event in payload.events if event.get("type") == "BURST_NO_KILL"),
                 key=lambda event: event["metadata"]["rounds_observed"],

@@ -9,6 +9,10 @@ the bot skips YOLO entirely instead of downloading a misleading fallback.
 For the Majestic 1920×1200 HUD layout, OCR can separately report observed ammo
 consumption and increases in the kill counter. This is not an aim score or proof
 that a specific opponent was hit or finished.
+For the tested 16:9 Majestic capt HUD, OCR can read ammo and kill-feed names. If
+the sender provides their exact in-game name, the bot can attribute matching
+kill-feed entries and show a **limited, low-confidence score for confirmed
+finishes**. It is not an aim, cover, or overall capt skill score.
 
 ## Architecture
 
@@ -115,7 +119,7 @@ python main.py
 | Command | Who | What |
 | --- | --- | --- |
 | `/menu` | Все | Меню с кнопкой «Залить откат» |
-| `/analyze url:` | Все | Разбор по YouTube / Google Диск / Rutube / прямой ссылке |
+| `/analyze url: player_name:` | Все | Разбор по ссылке; игровой ник нужен для личных убийств в капте |
 | `/status analysis_id:` | Все | Статус анализа |
 | `/help` | Все | То же меню |
 | `/train_add` | Developers | Add a completed analysis to the knowledge base |
@@ -141,7 +145,7 @@ CPU YOLO will be slow. That is expected on this hardware.
 - Aim cannot run without a crosshair detector
 - World coordinates are unknown
 - Screen distance is **not** meters
-- Majestic HUD OCR supports one known layout/aspect ratio; other HUDs stay unavailable
+- Majestic HUD OCR supports tested 16:10 and 16:9 capt layouts; other HUDs stay unavailable
 - Damage, individual target outcomes, and vehicle enter/exit are not detected
 
 Next vision work: annotated GTA frames, crosshair tracking, player/damage detectors,

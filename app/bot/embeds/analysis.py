@@ -21,6 +21,7 @@ SCORE_RU = {
     "Awareness": "Осведомлённость",
     "Aim": "Прицел",
     "Cover Usage": "Укрытия",
+    "Confirmed Finish": "Завершение боя*",
 }
 
 EVENT_RU = {
@@ -28,6 +29,8 @@ EVENT_RU = {
     "DIRECTION_CHANGE": "Смена направления",
     "MULTIPLE_TARGETS_VISIBLE": "Несколько целей на экране",
     "BURST_NO_KILL": "Расход патронов без роста счётчика убийств (HUD)",
+    "KILL": "Подтверждённое убийство",
+    "KILL_FEED_ENTRY": "Запись в ленте убийств",
 }
 
 
@@ -76,6 +79,10 @@ def _error_lines(result: dict) -> list[str]:
         )
         for event in interesting[:6]:
             label = EVENT_RU.get(event.get("type"), event.get("type"))
+            if event.get("type") in {"KILL", "KILL_FEED_ENTRY"}:
+                meta = event.get("metadata") or {}
+                if meta.get("killer") and meta.get("victim"):
+                    label += f": {meta['killer']} → {meta['victim']}"
             rounds = event.get("metadata", {}).get("rounds_observed")
             if event.get("type") == "BURST_NO_KILL" and rounds:
                 label += f" — {rounds} патронов"
@@ -110,11 +117,17 @@ def build_analysis_embeds(analysis_id: str, result: dict) -> list[discord.Embed]
     main = discord.Embed(title="🎮 РАЗБОР GTA AI", color=discord.Color.green())
     main.add_field(name="Анализ", value=f"#{analysis_id}", inline=True)
     main.add_field(name="Длительность", value=duration, inline=True)
-    score_display = (
-        _score_line(scores)
-        if gameplay_available
-        else "Недоступны: на сервере нет модели, обученной на GTA/FiveM."
-    )
+    hud = metadata.get("hud_analysis") or {}
+    hud_scores = [score for score in scores if score.get("name") == "Confirmed Finish"]
+    if gameplay_available:
+        score_display = _score_line(scores)
+    elif hud_scores:
+        score_display = (
+            _score_line(hud_scores)
+            + "\n*Предварительная оценка подтверждённых эпизодов по HUD; не оценка меткости или всего капта."
+        )
+    else:
+        score_display = "Недоступны: на сервере нет модели, обученной на GTA/FiveM."
     main.add_field(name="📊 ОЦЕНКИ", value=score_display, inline=False)
     if gameplay_available:
         tracking = (
@@ -128,18 +141,30 @@ def build_analysis_embeds(analysis_id: str, result: dict) -> list[discord.Embed]
             "Непроверенные цели не показываются."
         )
     main.add_field(name="📈 ТРЕКИНГ", value=tracking, inline=False)
-    hud = metadata.get("hud_analysis") or {}
     if hud.get("available"):
-        main.add_field(
-            name="🔫 ИНТЕРФЕЙС MAJESTIC",
-            value=(
-                f"Патронов израсходовано: {hud['rounds_observed']}\n"
-                f"Прирост убийств: {hud['kills_observed']}\n"
-                f"Серий стрельбы без прироста: {hud['bursts_without_kill']}\n"
-                "Попадания и доводка прицела не измерены."
-            ),
-            inline=False,
-        )
+        if hud.get("profile") == "majestic_capt":
+            kills = hud.get("player_kills")
+            main.add_field(
+                name="🔫 КАПТ / ИНТЕРФЕЙС",
+                value=(
+                    f"Патронов израсходовано: {hud['rounds_observed']}\n"
+                    f"Прочитано записей ленты: {hud['kill_feed_entries']}\n"
+                    f"Подтверждено с твоим ником: {kills if kills is not None else 'Н/Д — укажи игровой ник'}\n"
+                    "Прицел и попадания не измерены."
+                ),
+                inline=False,
+            )
+        else:
+            main.add_field(
+                name="🔫 ИНТЕРФЕЙС MAJESTIC",
+                value=(
+                    f"Патронов израсходовано: {hud['rounds_observed']}\n"
+                    f"Прирост убийств: {hud['kills_observed']}\n"
+                    f"Серий стрельбы без прироста: {hud['bursts_without_kill']}\n"
+                    "Попадания и доводка прицела не измерены."
+                ),
+                inline=False,
+            )
     embeds.append(main)
 
     errors = _error_lines(result)

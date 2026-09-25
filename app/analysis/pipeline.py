@@ -12,8 +12,10 @@ from app.analysis.detection.base import BaseDetector, Detection
 from app.analysis.detection.yolo import YOLODetector, _resolve
 from app.analysis.events.engine import EventEngine
 from app.analysis.events.models import EventType, GameEvent
+from app.analysis.hud.capt import CaptHudTracker
 from app.analysis.hud.majestic import MajesticHudTracker
 from app.analysis.metrics.engine import compute_metrics, compute_scores
+from app.analysis.metrics.models import Score
 from app.analysis.motion import ScreenMotionAnalyzer
 from app.analysis.tracking.tracker import TrackStore
 from app.analysis.video.metadata import VideoMetadata
@@ -30,7 +32,7 @@ LIMITATIONS = [
     "Standard YOLO is not a GTA/FiveM specialist model.",
     "Screen coordinates are pixels, not GTA world meters.",
     "Map geometry and cover are not detected.",
-    "Crosshair, damage, and individual target outcomes are not detected.",
+    "Crosshair and individual target trajectories are not detected; capt kills need a matching player name in the kill feed.",
 ]
 
 
@@ -72,6 +74,7 @@ class AnalysisPipeline:
         video_path: Path,
         metadata: VideoMetadata,
         on_progress: ProgressCallback | None = None,
+        player_name: str | None = None,
     ) -> dict:
         # OpenCV decoding and YOLO inference are synchronous CPU/GPU work. Running
         # them on the Discord event-loop thread prevents gateway heartbeats from
@@ -82,6 +85,7 @@ class AnalysisPipeline:
             video_path,
             metadata,
             on_progress,
+            player_name,
         )
 
         if on_progress:
@@ -106,6 +110,7 @@ class AnalysisPipeline:
         video_path: Path,
         metadata: VideoMetadata,
         on_progress: ProgressCallback | None,
+        player_name: str | None = None,
     ) -> PipelinePayload:
         from app.analysis.video.reader import iter_sampled_frames
 
@@ -123,6 +128,7 @@ class AnalysisPipeline:
         events = EventEngine()
         motion = ScreenMotionAnalyzer()
         hud = MajesticHudTracker()
+        capt_hud = CaptHudTracker(player_name)
         frame_count = 0
         last_logged = -10
 
@@ -134,6 +140,7 @@ class AnalysisPipeline:
             ):
                 motion.update(timestamp, frame)
                 hud.update(timestamp, frame)
+                capt_hud.update(timestamp, frame)
                 detections = detector.track(frame) if gameplay_capable else []
                 store.update(timestamp, detections)
                 events.on_frame(timestamp, detections)
@@ -153,6 +160,9 @@ class AnalysisPipeline:
         motion_stats = motion.stats()
         game_events = events.finalize(store.tracks)
         hud_summary, hud_events = hud.finalize()
+        capt_summary, capt_events = capt_hud.finalize()
+        if capt_summary.get("profile"):
+            hud_summary, hud_events = capt_summary, capt_events
         game_events.extend(hud_events)
         if motion_stats:
             for index, ts in enumerate(motion_stats["spike_times"], start=1):
@@ -167,6 +177,15 @@ class AnalysisPipeline:
                 )
         metrics = compute_metrics(store.tracks, frame_count, motion_stats)
         scores = compute_scores(metrics, gameplay_capable=gameplay_capable)
+        if hud_summary.get("finish_score") is not None:
+            scores.append(
+                Score(
+                    name="Confirmed Finish",
+                    value=hud_summary["finish_score"],
+                    confidence=0.45,
+                    status="limited_hud_heuristic",
+                )
+            )
         limitations = list(LIMITATIONS)
         if not gameplay_capable:
             limitations.append(
