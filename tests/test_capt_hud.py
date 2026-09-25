@@ -163,6 +163,35 @@ def test_deathmatch_hud_is_recognized_without_mcl_scoreboard():
     assert tracker.samples == [CaptSample(0, 35, 996)]
 
 
+def test_two_ammo_reads_recognize_combat_hud_when_youtube_blurs_logo():
+    class FakeOCR:
+        def __init__(self):
+            self.calls = 0
+
+        def __call__(self, _image):
+            self.calls += 1
+            sequence = [
+                [],
+                [([[], [], [], []], "35/996", 0.9)],
+                [],
+                [],
+                [([[], [], [], []], "34/995", 0.9)],
+                [],
+                [],
+            ]
+            return sequence[self.calls - 1], None
+
+    tracker = CaptHudTracker()
+    tracker._ocr = FakeOCR()
+    frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+    tracker.update(0, frame)
+    assert tracker._recognized_hud is False
+    tracker.update(5, frame)
+    assert tracker._recognized_hud is True
+    assert tracker._combat_signature_hits == 2
+    assert tracker.samples == [CaptSample(5, 34, 995)]
+
+
 def test_other_resolution_is_silent():
     tracker = CaptHudTracker()
     tracker.update(0, np.zeros((32, 32, 3), dtype=np.uint8))

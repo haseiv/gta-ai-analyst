@@ -125,6 +125,7 @@ class CaptHudTracker:
         self._available = True
         self._recognized_hud = False
         self._hud_variant: str | None = None
+        self._combat_signature_hits = 0
         self._last_brand_check = -5.0
         self._last_sample = -1.0
         self.samples: list[CaptSample] = []
@@ -164,10 +165,16 @@ class CaptHudTracker:
             has_brand = any("majestic" in text.casefold() and conf >= 0.7 for text, conf in corner)
             has_mcl = any(text.strip().upper() == "MCL" and conf >= 0.6 for text, conf in corner)
             has_timer = any(TIMER_RE.fullmatch(text.strip()) and conf >= 0.6 for text, conf in scoreboard)
+            if detected_ammo[0] is not None:
+                self._combat_signature_hits += 1
+            else:
+                self._combat_signature_hits = 0
             # Majestic deathmatch has no MCL timer. The brand plus a valid ammo
-            # counter is a stronger general combat-HUD signature than requiring
-            # one particular game mode.
-            self._recognized_hud = has_brand and detected_ammo[0] is not None
+            # counter is a strong signature. Two consecutive valid ammo reads
+            # are also accepted because YouTube compression can blur the logo.
+            self._recognized_hud = detected_ammo[0] is not None and (
+                has_brand or self._combat_signature_hits >= 2
+            )
             if not self._recognized_hud:
                 return
             self._hud_variant = "mcl" if has_mcl and has_timer else "deathmatch_or_other"
