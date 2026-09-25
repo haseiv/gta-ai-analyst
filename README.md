@@ -122,10 +122,10 @@ python main.py
 | `/analyze url:` | Все | Разбор отката по ссылке; авторские киллы в капте определяются по интерфейсу |
 | `/status analysis_id:` | Все | Статус анализа |
 | `/help` | Все | То же меню |
-| `/train_add` | Developers | Add a completed analysis to the knowledge base |
-| `/train_list` | Developers | List examples |
-| `/train_remove` | Developers | Delete an example |
-| `/train_stats` | Developers | Category counts |
+| `/train_add` | Developers / server admins | Add a completed analysis to the knowledge base |
+| `/train_list` | Developers / server admins | List examples |
+| `/train_remove` | Developers / server admins | Delete an example |
+| `/train_stats` | Developers / server admins | Category counts |
 
 The main bot never asks users to confirm an analysis. Learning is developer-only and never auto-trains on AI output.
 
