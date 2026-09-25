@@ -149,7 +149,10 @@ async def test_generic_coco_detector_cannot_produce_gameplay_claims(monkeypatch,
     video.write_bytes(b"0")
     detector = GenericDetector()
 
+    sampled_fps: list[float] = []
+
     def fake_frames(_path, _fps, source_fps=None):
+        sampled_fps.append(_fps)
         for index in range(4):
             yield index * 0.2, np.full((32, 32, 3), index * 10, dtype=np.uint8)
 
@@ -167,6 +170,7 @@ async def test_generic_coco_detector_cannot_produce_gameplay_claims(monkeypatch,
     )
 
     assert detector.calls == 0
+    assert sampled_fps == [0.5]
     assert result["metadata"]["gameplay_analysis_available"] is False
     assert all(score["value"] is None for score in result["scores"])
     assert result["tracks"] == []

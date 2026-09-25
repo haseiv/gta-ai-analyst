@@ -80,6 +80,7 @@ cp .env.example .env
 | `DATABASE_URL` | SQLite URL |
 | `MAX_VIDEO_SIZE_MB` | Лимит скачивания, по умолчанию 250 МБ. YouTube качается в 720p |
 | `ANALYSIS_FPS` | Sampled analysis rate |
+| `HUD_ANALYSIS_FPS` | Lightweight sampling rate when no GTA detector is installed (default `0.5`) |
 | `MAX_CONCURRENT_ANALYSES` | Keep at `1` on 2 GB RAM |
 | `REPLAY_CHANNEL_ID` | Channel for sent replays |
 | `REPLAY_RETENTION_MINUTES` | Local replay lifetime |

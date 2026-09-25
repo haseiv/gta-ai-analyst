@@ -128,11 +128,22 @@ class AnalysisPipeline:
         capt_hud = CaptHudTracker()
         frame_count = 0
         last_logged = -10
+        sample_fps = (
+            self.settings.analysis_fps
+            if gameplay_capable
+            else min(self.settings.analysis_fps, self.settings.hud_analysis_fps)
+        )
+        logger.info(
+            "analysis sampling analysis_id=%s fps=%.2f gameplay_capable=%s",
+            analysis_id,
+            sample_fps,
+            gameplay_capable,
+        )
 
         try:
             for timestamp, frame in iter_sampled_frames(
                 video_path,
-                self.settings.analysis_fps,
+                sample_fps,
                 source_fps=metadata.fps or None,
             ):
                 motion.update(timestamp, frame)

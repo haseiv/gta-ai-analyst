@@ -11,10 +11,12 @@ def test_developer_ids_parse_from_csv():
 def test_settings_read_env(monkeypatch):
     monkeypatch.setenv("MAX_VIDEO_SIZE_MB", "50")
     monkeypatch.setenv("ANALYSIS_FPS", "4")
+    monkeypatch.setenv("HUD_ANALYSIS_FPS", "0.75")
     monkeypatch.setenv("DEVELOPER_USER_IDS", "42")
     reset_settings_cache()
     settings = get_settings()
     assert settings.max_video_size_mb == 50
     assert settings.analysis_fps == 4
+    assert settings.hud_analysis_fps == 0.75
     assert settings.developer_user_ids == [42]
     reset_settings_cache()

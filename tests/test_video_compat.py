@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.analysis.video import compat
-from app.analysis.video.reader import iter_sampled_frames
+from app.analysis.video.reader import _scaled_size, iter_sampled_frames
 
 
 def test_compatible_video_is_not_transcoded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -57,3 +57,9 @@ def test_reader_rejects_open_video_with_zero_decoded_frames(monkeypatch: pytest.
     monkeypatch.setitem(sys.modules, "cv2", fake_cv2)
     with pytest.raises(RuntimeError, match="zero frames"):
         list(iter_sampled_frames(Path("empty.mp4"), 5.0))
+
+
+def test_analysis_frames_are_downscaled_to_even_720p_dimensions():
+    assert _scaled_size(2560, 1440) == (1280, 720)
+    assert _scaled_size(1920, 1080) == (1280, 720)
+    assert _scaled_size(1280, 721) == (1280, 720)

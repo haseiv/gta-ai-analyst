@@ -21,6 +21,7 @@ class Settings(BaseModel):
     database_url: str = "sqlite:///data/database/gta_ai.db"
     max_video_size_mb: int = Field(default=2000, ge=1)
     analysis_fps: float = Field(default=5.0, gt=0)
+    hud_analysis_fps: float = Field(default=0.5, gt=0)
     max_concurrent_analyses: int = Field(default=1, ge=1)
     replay_channel_id: int | None = None
     replay_retention_minutes: int = Field(default=30, ge=1)
@@ -75,6 +76,7 @@ def get_settings() -> Settings:
         database_url=env_str("DATABASE_URL", "sqlite:///data/database/gta_ai.db"),
         max_video_size_mb=env_int("MAX_VIDEO_SIZE_MB", 2000),
         analysis_fps=env_float("ANALYSIS_FPS", 5.0),
+        hud_analysis_fps=env_float("HUD_ANALYSIS_FPS", 0.5),
         max_concurrent_analyses=env_int("MAX_CONCURRENT_ANALYSES", 1),
         replay_channel_id=env_str("REPLAY_CHANNEL_ID") or None,
         replay_retention_minutes=env_int("REPLAY_RETENTION_MINUTES", 30),
