@@ -28,7 +28,7 @@ def build_menu_embed() -> discord.Embed:
         name="Как пользоваться",
         value=(
             "1. Нажми **Залить откат**\n"
-            "2. Вставь ссылку и свой игровой ник для личных киллов\n"
+            "2. Вставь ссылку на видео\n"
             "3. Дождись разбора в этом канале"
         ),
         inline=False,
@@ -44,21 +44,12 @@ class UploadReplayModal(discord.ui.Modal, title="Залить откат"):
         style=discord.TextStyle.paragraph,
         max_length=1000,
     )
-    player_name = discord.ui.TextInput(
-        label="Твой ник в игре (необязательно)",
-        placeholder="Например, Hase Faze",
-        required=False,
-        max_length=50,
-    )
-
     def __init__(self, bot: GTAAnalystBot) -> None:
         super().__init__()
         self.bot = bot
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
-        await submit_video_url(
-            self.bot, interaction, str(self.url.value), str(self.player_name.value or "")
-        )
+        await submit_video_url(self.bot, interaction, str(self.url.value))
 
 
 class MainMenuView(discord.ui.View):

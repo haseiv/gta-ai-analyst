@@ -143,13 +143,13 @@ def build_analysis_embeds(analysis_id: str, result: dict) -> list[discord.Embed]
     main.add_field(name="📈 ТРЕКИНГ", value=tracking, inline=False)
     if hud.get("available"):
         if hud.get("profile") == "majestic_capt":
-            kills = hud.get("player_kills")
             main.add_field(
                 name="🔫 КАПТ / ИНТЕРФЕЙС",
                 value=(
                     f"Патронов израсходовано: {hud['rounds_observed']}\n"
                     f"Прочитано записей ленты: {hud['kill_feed_entries']}\n"
-                    f"Подтверждено с твоим ником: {kills if kills is not None else 'Н/Д — укажи игровой ник'}\n"
+                    f"Твоих киллов по красной рамке: {hud['player_kills']}\n"
+                    f"Серий без личного килла: {len(hud.get('unconverted_bursts') or [])}\n"
                     "Прицел и попадания не измерены."
                 ),
                 inline=False,

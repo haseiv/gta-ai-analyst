@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass
 
 import cv2
@@ -32,6 +33,10 @@ def _name_key(value: str) -> str:
 
 def _feed_pairs(result: list | None) -> list[tuple[str, str]]:
     """Pair OCR names on opposite sides of a weapon icon in the kill feed."""
+    return [(killer, victim) for killer, victim, _ in _feed_rows(result)]
+
+
+def _feed_rows(result: list | None) -> list[tuple[str, str, float]]:
     left: list[tuple[float, str]] = []
     right: list[tuple[float, str]] = []
     for box, raw_text, raw_confidence in result or []:
@@ -44,14 +49,34 @@ def _feed_pairs(result: list | None) -> list[tuple[str, str]]:
             left.append((y, name))
         elif x > 220:
             right.append((y, name))
-    pairs = []
+    pairs: list[tuple[str, str, float]] = []
     for left_y, killer in left:
         close = [(abs(left_y - right_y), victim) for right_y, victim in right]
         if close:
             distance, victim = min(close)
             if distance <= 12:
-                pairs.append((killer, victim))
+                pairs.append((killer, victim, left_y))
     return pairs
+
+
+def _has_player_highlight(image: np.ndarray, row_y: float) -> bool:
+    """Majestic outlines the local player's kill-feed row in red."""
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    red = cv2.bitwise_or(
+        cv2.inRange(hsv, (0, 70, 50), (12, 255, 255)),
+        cv2.inRange(hsv, (170, 70, 50), (179, 255, 255)),
+    )
+    mask = red > 0
+    row = int(round(row_y))
+    top_start, top_end = max(0, row - 40), max(0, row - 10)
+    bottom_start, bottom_end = min(mask.shape[0] - 1, row + 10), min(mask.shape[0], row + 45)
+    if top_start >= top_end or bottom_start >= bottom_end:
+        return False
+    top_coverage = max(float(mask[y].mean()) for y in range(top_start, top_end))
+    bottom_coverage = max(float(mask[y].mean()) for y in range(bottom_start, bottom_end))
+    band_start, band_end = max(0, row - 40), min(mask.shape[0], row + 45)
+    dense_rows = sum(float(mask[y].mean()) >= 0.60 for y in range(band_start, band_end))
+    return top_coverage >= 0.85 and bottom_coverage >= 0.85 and dense_rows <= 10
 
 
 @dataclass(frozen=True)
@@ -64,19 +89,18 @@ class CaptSample:
 class CaptHudTracker:
     """Evidence-only observer for the 16:9 Majestic capt HUD.
 
-    A feed entry is attributed to the submitting player only when their in-game
-    name was supplied. No target or crosshair tracking is inferred from the HUD.
+    Local kills are identified by the red row outline in the kill feed. An
+    No nickname input or target tracking is required or inferred.
     """
 
-    def __init__(self, player_name: str | None = None) -> None:
-        self.player_name = (player_name or "").strip()
+    def __init__(self) -> None:
         self._ocr: object | None = None
         self._available = True
         self._recognized_hud = False
         self._last_brand_check = -5.0
         self._last_sample = -1.0
         self.samples: list[CaptSample] = []
-        self.feed: list[tuple[float, str, str]] = []
+        self.feed: list[tuple[float, str, str, bool]] = []
         self._last_seen: dict[tuple[str, str], float] = {}
         self._feed_initialized = False
 
@@ -125,11 +149,12 @@ class CaptHudTracker:
         if ammo is None:
             return
 
-        result, _ = ocr(_crop(frame, 2200, 205, 2560, 460))
-        for killer, victim in _feed_pairs(result):
+        feed_image = _crop(frame, 2200, 205, 2560, 460)
+        result, _ = ocr(feed_image)
+        for killer, victim, row_y in _feed_rows(result):
             key = (_name_key(killer), _name_key(victim))
             if self._feed_initialized and timestamp - self._last_seen.get(key, -30.0) > 15.0:
-                self.feed.append((timestamp, killer, victim))
+                self.feed.append((timestamp, killer, victim, _has_player_highlight(feed_image, row_y)))
             self._last_seen[key] = timestamp
         self._feed_initialized = True
 
@@ -141,37 +166,43 @@ class CaptHudTracker:
             return {"profile": "majestic_capt", "available": False, "ammo_samples": len(valid_ammo)}, []
 
         shot_times: list[tuple[float, int]] = []
+        reload_times: list[float] = []
         for (before_time, before), (timestamp, after) in zip(valid_ammo, valid_ammo[1:]):
             delta = before - after
             if 0 < timestamp - before_time <= 2.5 and 0 < delta <= 40:
                 shot_times.append((timestamp, delta))
+            elif 0 < timestamp - before_time <= 2.5 and -delta >= 5:
+                reload_times.append(timestamp)
 
         events: list[GameEvent] = []
         rated: list[dict] = []
-        player_key = _name_key(self.player_name)
-        for index, (timestamp, killer, victim) in enumerate(self.feed, 1):
-            own_kill = bool(player_key and _name_key(killer) == player_key)
-            if player_key and not own_kill:
+        own_kill_times: list[float] = []
+        inferred_names: list[str] = []
+        for index, (timestamp, killer, victim, highlighted) in enumerate(self.feed, 1):
+            if not highlighted:
                 continue
+            own_kill_times.append(timestamp)
+            inferred_names.append(killer)
             rounds = sum(
                 count for shot_time, count in shot_times if timestamp - 4.0 <= shot_time <= timestamp
             )
             events.append(
                 GameEvent(
                     id=f"CAPT-K{index:04d}",
-                    type=EventType.KILL if own_kill else EventType.KILL_FEED_ENTRY,
+                    type=EventType.KILL,
                     timestamp=round(timestamp, 2),
-                    confidence=0.75 if own_kill else 0.65,
+                    confidence=0.85,
                     metadata={
                         "source": "majestic_capt_hud_ocr",
                         "killer": killer,
                         "victim": victim,
-                        "player_confirmed": own_kill,
+                        "player_confirmed": True,
+                        "player_attribution": "red_feed_highlight",
                         "rounds_in_previous_4s": rounds,
                     },
                 )
             )
-            if own_kill and rounds > 0:
+            if rounds > 0:
                 # A narrow outcome/efficiency rubric for one confirmed engagement,
                 # not a general aim, movement, or positioning skill rating.
                 score = max(5.0, min(9.0, 10.0 - max(rounds - 4, 0) * 0.15))
@@ -182,15 +213,50 @@ class CaptHudTracker:
                     "score": round(score, 1),
                 })
 
+        bursts: list[tuple[float, float, int]] = []
+        for timestamp, count in shot_times:
+            if (
+                bursts
+                and timestamp - bursts[-1][1] <= 2.5
+                and not any(bursts[-1][1] < reload <= timestamp for reload in reload_times)
+            ):
+                start, _, previous_count = bursts[-1]
+                bursts[-1] = (start, timestamp, previous_count + count)
+            else:
+                bursts.append((timestamp, timestamp, count))
+
+        unconverted = []
+        for index, (start, end, count) in enumerate(bursts, 1):
+            if count < 8 or any(start <= kill <= end + 2.0 for kill in own_kill_times):
+                continue
+            unconverted.append({"timestamp": round(start, 2), "rounds": count})
+            events.append(
+                GameEvent(
+                    id=f"CAPT-B{index:04d}",
+                    type=EventType.BURST_NO_KILL,
+                    timestamp=round(start, 2),
+                    confidence=0.50,
+                    metadata={
+                        "source": "majestic_capt_hud_ocr",
+                        "end": round(end, 2),
+                        "rounds_observed": count,
+                        "meaning": "shooting_without_local_kill_feed_highlight; review candidate",
+                    },
+                )
+            )
+
+        inferred_player = Counter(inferred_names).most_common(1)[0][0] if inferred_names else None
+
         return {
             "profile": "majestic_capt",
             "available": True,
             "ammo_samples": len(valid_ammo),
             "rounds_observed": sum(count for _, count in shot_times),
             "kill_feed_entries": len(self.feed),
-            "player_name": self.player_name or None,
-            "player_kills": sum(1 for _, killer, _ in self.feed if player_key and _name_key(killer) == player_key)
-            if player_key else None,
+            "player_name": inferred_player,
+            "player_name_source": "red_feed_highlight" if inferred_player else None,
+            "player_kills": len(own_kill_times),
             "rated_engagements": rated,
+            "unconverted_bursts": unconverted,
             "finish_score": round(sum(item["score"] for item in rated) / len(rated), 1) if rated else None,
         }, events

@@ -9,10 +9,10 @@ the bot skips YOLO entirely instead of downloading a misleading fallback.
 For the Majestic 1920×1200 HUD layout, OCR can separately report observed ammo
 consumption and increases in the kill counter. This is not an aim score or proof
 that a specific opponent was hit or finished.
-For the tested 16:9 Majestic capt HUD, OCR can read ammo and kill-feed names. If
-the sender provides their exact in-game name, the bot can attribute matching
-kill-feed entries and show a **limited, low-confidence score for confirmed
-finishes**. It is not an aim, cover, or overall capt skill score.
+For the tested 16:9 Majestic capt HUD, OCR reads ammo and kill-feed names and
+uses Majestic's red row outline to identify the recording player's kills. It can
+show a **limited, low-confidence score for confirmed finishes** without asking
+for a nickname. It is not an aim, cover, or overall capt skill score.
 
 ## Architecture
 
@@ -119,7 +119,7 @@ python main.py
 | Command | Who | What |
 | --- | --- | --- |
 | `/menu` | Все | Меню с кнопкой «Залить откат» |
-| `/analyze url: player_name:` | Все | Разбор по ссылке; игровой ник нужен для личных убийств в капте |
+| `/analyze url:` | Все | Разбор отката по ссылке; авторские киллы в капте определяются по интерфейсу |
 | `/status analysis_id:` | Все | Статус анализа |
 | `/help` | Все | То же меню |
 | `/train_add` | Developers | Add a completed analysis to the knowledge base |

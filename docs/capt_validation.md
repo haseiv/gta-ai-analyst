@@ -18,7 +18,7 @@ and a limited 8.5/10 outcome/efficiency score for this encounter. A different
 player's kill-feed entry in the same clip must not count as the sender's kill.
 The transparent provisional rubric is `clamp(10 - 0.15 × max(rounds - 4, 0), 5, 9)`
 for a kill with a visible ammo decrease in the preceding four seconds. It is
-shown only when the supplied player name matches the killer in the feed.
+shown only when Majestic's red row outline identifies the local player's kill.
 The score does not validate aim tracking, the damage source, whether the peek
 was safe, or overall capt performance. Training such judgments requires many
 independently labelled encounters and held-out recordings.

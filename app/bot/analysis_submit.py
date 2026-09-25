@@ -20,7 +20,6 @@ async def submit_video_url(
     bot: GTAAnalystBot,
     interaction: discord.Interaction,
     raw_url: str,
-    player_name: str | None = None,
 ) -> None:
     try:
         url, filename = parse_video_url(raw_url)
@@ -45,7 +44,6 @@ async def submit_video_url(
         channel_id=interaction.channel_id or 0,
         interaction_token=interaction.token,
         application_id=bot.application_id or 0,
-        player_name=(player_name or "").strip()[:50] or None,
     )
     await bot.job_queue.enqueue(job)
     logger.info("analysis created analysis_id=%s user=%s", analysis_id, interaction.user.id)

@@ -25,13 +25,7 @@ def build_local_coach_report(payload: PipelinePayload) -> dict:
     if not gameplay_available:
         if hud.get("available") and hud.get("profile") == "majestic_capt":
             player_kills = hud.get("player_kills")
-            if player_kills is None:
-                kill_text = (
-                    f"В ленте есть {hud['kill_feed_entries']} записей об убийствах; "
-                    "без игрового ника нельзя приписать их автору записи."
-                )
-            else:
-                kill_text = f"OCR подтвердил минимум {player_kills} записей об убийствах с твоим ником."
+            kill_text = f"OCR подтвердил минимум {player_kills} твоих убийств по красной рамке ленты."
             summary = (
                 f"Капт {duration} прочитан ({frames} кадров). По интерфейсу Majestic "
                 f"замечен расход {hud['rounds_observed']} патронов. {kill_text} "
@@ -56,17 +50,23 @@ def build_local_coach_report(payload: PipelinePayload) -> dict:
         mistakes = []
         if hud.get("available") and hud.get("profile") == "majestic_capt":
             rated = hud.get("rated_engagements") or []
+            unconverted = hud.get("unconverted_bursts") or []
             if rated:
                 best = rated[0]
                 strengths.append(
                     f"{format_timestamp(best['timestamp'])}: подтверждено убийство {best['victim']} "
                     f"после расхода примерно {best['rounds_in_previous_4s']} патронов за 4 секунды."
                 )
+            if unconverted:
+                mistakes.extend(
+                    f"{format_timestamp(item['timestamp'])}: серия примерно из {item['rounds']} патронов "
+                    "без подтверждённого личного килла — кандидат на пересмотр."
+                    for item in unconverted[:3]
+                )
             recommendations = [
-                "Оценка завершения боя предварительная: она учитывает только ленту убийств и патроны, не технику прицеливания.",
+                "Проверь отмеченные серии без килла: это может быть ошибка доводки, смена цели или подавляющий огонь.",
+                "Оценка завершения боя предварительная: она учитывает ленту убийств и патроны, но не траекторию прицела.",
             ]
-            if not hud.get("player_name"):
-                recommendations.insert(0, "Укажи свой игровой ник при отправке ролика, чтобы отделить твои убийства от чужих.")
         elif hud.get("available"):
             bursts = sorted(
                 (event for event in payload.events if event.get("type") == "BURST_NO_KILL"),

@@ -25,7 +25,6 @@ class AnalysisJob:
     channel_id: int
     interaction_token: str
     application_id: int
-    player_name: str | None = None
     video_path: str | None = None
     status: str = "QUEUED"
     progress: float = 0.0

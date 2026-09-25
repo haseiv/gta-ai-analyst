@@ -32,7 +32,7 @@ LIMITATIONS = [
     "Standard YOLO is not a GTA/FiveM specialist model.",
     "Screen coordinates are pixels, not GTA world meters.",
     "Map geometry and cover are not detected.",
-    "Crosshair and individual target trajectories are not detected; capt kills need a matching player name in the kill feed.",
+    "Crosshair and individual target trajectories are not detected; capt kills are attributed from Majestic's highlighted kill-feed row.",
 ]
 
 
@@ -74,7 +74,6 @@ class AnalysisPipeline:
         video_path: Path,
         metadata: VideoMetadata,
         on_progress: ProgressCallback | None = None,
-        player_name: str | None = None,
     ) -> dict:
         # OpenCV decoding and YOLO inference are synchronous CPU/GPU work. Running
         # them on the Discord event-loop thread prevents gateway heartbeats from
@@ -85,7 +84,6 @@ class AnalysisPipeline:
             video_path,
             metadata,
             on_progress,
-            player_name,
         )
 
         if on_progress:
@@ -110,7 +108,6 @@ class AnalysisPipeline:
         video_path: Path,
         metadata: VideoMetadata,
         on_progress: ProgressCallback | None,
-        player_name: str | None = None,
     ) -> PipelinePayload:
         from app.analysis.video.reader import iter_sampled_frames
 
@@ -128,7 +125,7 @@ class AnalysisPipeline:
         events = EventEngine()
         motion = ScreenMotionAnalyzer()
         hud = MajesticHudTracker()
-        capt_hud = CaptHudTracker(player_name)
+        capt_hud = CaptHudTracker()
         frame_count = 0
         last_logged = -10
 
