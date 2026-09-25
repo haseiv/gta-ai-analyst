@@ -26,6 +26,8 @@ def iter_sampled_frames(
         while True:
             ok, frame = capture.read()
             if not ok:
+                if frame_index == 0:
+                    raise RuntimeError("OpenCV decoded zero frames")
                 break
             if frame_index % interval == 0:
                 timestamp = frame_index / fps

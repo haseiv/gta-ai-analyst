@@ -10,6 +10,8 @@ from app.utils.logging import get_logger
 logger = get_logger(__name__)
 
 _FORMATS = (
+    "bv*[vcodec^=avc1][height<=1080]+ba[acodec^=mp4a]/b[vcodec^=avc1][height<=1080]",
+    "bv*[vcodec^=avc1][height<=720]+ba[acodec^=mp4a]/b[vcodec^=avc1][height<=720]",
     "bv*[height<=1080]+ba/b[height<=1080]",
     "bv*[height<=720]+ba/b[height<=720]",
     "bv*[height<=480]+ba/b[height<=480]",

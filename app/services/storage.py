@@ -6,6 +6,7 @@ from pathlib import Path
 import aiohttp
 
 from app.analysis.video.sniff import is_html_or_text, read_head
+from app.analysis.video.compat import ensure_cv_compatible
 from app.services.ytdlp import download_platform_video
 from app.utils.files import unique_temp_path
 from app.utils.logging import get_logger
@@ -35,7 +36,7 @@ class LocalFileStorage:
         use_ytdlp = is_platform_url(url) or not is_direct_video_url(url)
         if use_ytdlp:
             logger.info("download via yt-dlp url_host")
-            return await asyncio.to_thread(
+            downloaded = await asyncio.to_thread(
                 download_platform_video,
                 url,
                 dest,
@@ -43,12 +44,13 @@ class LocalFileStorage:
                 cookies_file,
                 cookies_base64,
             )
+            return await asyncio.to_thread(ensure_cv_compatible, downloaded, max_bytes)
 
         await self.download(url, dest, max_bytes)
         if dest.exists() and is_html_or_text(read_head(dest)):
             logger.warning("direct download returned HTML; retrying with yt-dlp")
             dest.unlink(missing_ok=True)
-            return await asyncio.to_thread(
+            downloaded = await asyncio.to_thread(
                 download_platform_video,
                 url,
                 dest,
@@ -56,7 +58,8 @@ class LocalFileStorage:
                 cookies_file,
                 cookies_base64,
             )
-        return dest
+            return await asyncio.to_thread(ensure_cv_compatible, downloaded, max_bytes)
+        return await asyncio.to_thread(ensure_cv_compatible, dest, max_bytes)
 
     async def download(self, url: str, dest: Path, max_bytes: int) -> int:
         timeout = aiohttp.ClientTimeout(total=180)
