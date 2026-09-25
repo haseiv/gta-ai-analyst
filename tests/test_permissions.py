@@ -12,6 +12,13 @@ def test_developer_permission_check():
     assert deny_if_not_developer(denied, settings) is not None
 
 
+def test_builtin_owner_id_is_always_a_developer():
+    settings = Settings()
+    interaction = SimpleNamespace(user=SimpleNamespace(id=733202645002485772), guild=None)
+    assert settings.is_developer(733202645002485772) is True
+    assert deny_if_not_developer(interaction, settings) is None
+
+
 def test_server_owner_and_admin_can_manage_training_examples():
     settings = Settings()
     owner = SimpleNamespace(

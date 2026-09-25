@@ -92,6 +92,10 @@ cp .env.example .env
 
 Never put secrets in Python files.
 
+Discord user `733202645002485772` is the built-in project owner and always has
+access to the training commands. Additional maintainers still belong in
+`DEVELOPER_USER_IDS`.
+
 For a Docker or cloud deployment, export fresh YouTube cookies in Netscape format,
 encode the file with `base64`, and put the result in the secret environment variable
 `YTDLP_COOKIES_BASE64`. Do not commit the value to GitHub. If
