@@ -36,6 +36,7 @@ class Settings(BaseModel):
     temp_dir: Path = ROOT_DIR / "data" / "temp"
     database_dir: Path = ROOT_DIR / "data" / "database"
     models_dir: Path = ROOT_DIR / "models"
+    training_profiles_dir: Path = ROOT_DIR / "data" / "training_profiles"
     ytdlp_cookies_file: str = ""
     ytdlp_cookies_base64: str = ""
 
@@ -62,6 +63,7 @@ class Settings(BaseModel):
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         self.database_dir.mkdir(parents=True, exist_ok=True)
         self.models_dir.mkdir(parents=True, exist_ok=True)
+        self.training_profiles_dir.mkdir(parents=True, exist_ok=True)
 
 
 @lru_cache(maxsize=1)

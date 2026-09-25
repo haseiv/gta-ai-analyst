@@ -21,6 +21,7 @@ from app.analysis.tracking.tracker import TrackStore
 from app.analysis.video.metadata import VideoMetadata
 from app.config.settings import Settings
 from app.learning.knowledge import CoachKnowledgeBase
+from app.learning.profiles import CoachingProfileStore
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -89,7 +90,11 @@ class AnalysisPipeline:
         if on_progress:
             on_progress(92.0)
 
-        orchestrator = AgentOrchestrator(self.provider, self.knowledge)
+        orchestrator = AgentOrchestrator(
+            self.provider,
+            self.knowledge,
+            CoachingProfileStore(self.settings.training_profiles_dir),
+        )
         try:
             ai_result = await orchestrator.run(payload)
         except AIProviderError:

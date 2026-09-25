@@ -153,6 +153,12 @@ line must contain `start`, `end`, `category`, `human_analysis`, and optionally
 each human review and asks Qwen to normalize it into a segment-scoped label for
 the local student. Imports are limited to 25 examples and 512 KB per command.
 
+Universal mode rules use `/train_profile profile:<file.json>`. A profile is
+stored once and automatically selected by `hud_profiles` and optional
+`hud_variants`; unlike a training manifest it contains no video timestamps.
+Profiles adjust evidence-based round-count thresholds and recommendations but
+cannot turn an unobserved crosshair trajectory into an aim claim.
+
 ## Server requirements
 
 - Linux VPS with ~2 GB RAM

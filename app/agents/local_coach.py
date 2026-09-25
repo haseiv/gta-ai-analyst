@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.ai.schemas import CoachReport, CriticResult, PipelinePayload
+from app.learning.profiles import CoachingProfile
 from app.utils.time import format_timestamp
 
 
@@ -12,7 +13,10 @@ def _metric(payload: PipelinePayload, name: str) -> float | None:
     return None
 
 
-def build_local_coach_report(payload: PipelinePayload) -> dict:
+def build_local_coach_report(
+    payload: PipelinePayload,
+    profile: CoachingProfile | None = None,
+) -> dict:
     duration = format_timestamp(payload.duration)
     frames = int((payload.metadata or {}).get("analyzed_frames") or 0)
     tracks = len(payload.tracks)
@@ -51,22 +55,53 @@ def build_local_coach_report(payload: PipelinePayload) -> dict:
         if hud.get("available") and hud.get("profile") == "majestic_capt":
             rated = hud.get("rated_engagements") or []
             unconverted = hud.get("unconverted_bursts") or []
-            if rated:
-                best = rated[0]
+            if profile:
+                efficient = [
+                    item
+                    for item in rated
+                    if item["rounds_in_previous_4s"] <= profile.efficient_kill_max_rounds
+                ]
+                expensive = [
+                    item
+                    for item in rated
+                    if item["rounds_in_previous_4s"] > profile.mixed_kill_max_rounds
+                ]
+                warnings = [
+                    item
+                    for item in unconverted
+                    if item["rounds"] >= profile.unconverted_warning_rounds
+                ]
+            else:
+                efficient = rated
+                expensive = []
+                warnings = unconverted
+            if efficient:
+                best = efficient[0]
                 strengths.append(
                     f"{format_timestamp(best['timestamp'])}: подтверждено убийство {best['victim']} "
                     f"после расхода примерно {best['rounds_in_previous_4s']} патронов за 4 секунды."
                 )
-            if unconverted:
+            if expensive:
+                mistakes.extend(
+                    f"{format_timestamp(item['timestamp'])}: убийство подтверждено, но за последние "
+                    f"4 секунды распознано примерно {item['rounds_in_previous_4s']} патронов — "
+                    "кандидат на проверку контроля очереди."
+                    for item in expensive[:2]
+                )
+            if warnings:
                 mistakes.extend(
                     f"{format_timestamp(item['timestamp'])}: серия примерно из {item['rounds']} патронов "
                     "без подтверждённого личного килла — кандидат на пересмотр."
-                    for item in unconverted[:3]
+                    for item in warnings[:3]
                 )
-            recommendations = [
-                "Проверь отмеченные серии без килла: это может быть ошибка доводки, смена цели или подавляющий огонь.",
-                "Оценка завершения боя предварительная: она учитывает ленту убийств и патроны, но не траекторию прицела.",
-            ]
+            recommendations = list(profile.recommendations[:3]) if profile else []
+            if not recommendations:
+                recommendations = [
+                    "Проверь отмеченные серии без килла: это может быть ошибка доводки, смена цели или подавляющий огонь.",
+                    "Оценка завершения боя предварительная: она учитывает ленту убийств и патроны, но не траекторию прицела.",
+                ]
+            if profile:
+                summary += f" Применён профиль «{profile.title}»."
         elif hud.get("available"):
             bursts = sorted(
                 (event for event in payload.events if event.get("type") == "BURST_NO_KILL"),
@@ -135,7 +170,9 @@ def build_local_coach_report(payload: PipelinePayload) -> dict:
         summary=summary,
         strengths=strengths,
         mistakes=mistakes,
-        repeated_patterns=[],
+        repeated_patterns=(
+            [f"Применён универсальный профиль: {profile.title}."] if profile else []
+        ),
         recommendations=recommendations[:3],
         notable_moments=[],
     )

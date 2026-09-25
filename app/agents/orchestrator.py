@@ -12,14 +12,21 @@ from app.ai.base import AIProviderError, BaseAIProvider
 from app.ai.provider import HTTPAIProvider
 from app.ai.schemas import AgentResult, CoachReport, CriticResult, PipelinePayload
 from app.learning.knowledge import CoachKnowledgeBase
+from app.learning.profiles import CoachingProfileStore
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 
 class AgentOrchestrator:
-    def __init__(self, provider: BaseAIProvider, knowledge: CoachKnowledgeBase | None = None) -> None:
+    def __init__(
+        self,
+        provider: BaseAIProvider,
+        knowledge: CoachKnowledgeBase | None = None,
+        profiles: CoachingProfileStore | None = None,
+    ) -> None:
         self.provider = provider
+        self.profiles = profiles
         self.specialists = [
             MovementAgent(provider, knowledge),
             PositioningAgent(provider, knowledge),
@@ -36,7 +43,9 @@ class AgentOrchestrator:
                 "gameplay analysis unavailable analysis_id=%s; suppressing AI gameplay claims",
                 payload.analysis_id,
             )
-            return build_local_coach_report(payload)
+            hud = (payload.metadata or {}).get("hud_analysis") or {}
+            profile = self.profiles.match(hud) if self.profiles is not None else None
+            return build_local_coach_report(payload, profile=profile)
         if isinstance(self.provider, HTTPAIProvider) and not self.provider.available():
             logger.info("AI provider is not configured, using local coach text")
             return build_local_coach_report(payload)

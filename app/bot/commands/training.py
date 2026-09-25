@@ -12,6 +12,7 @@ from app.bot.permissions import deny_if_not_developer
 from app.bot.views.training import TrainingAddView
 from app.database.repository import DistilledExampleRepository, TrainingRepository
 from app.learning.manifest import ManifestError, parse_training_manifest
+from app.learning.profiles import CoachingProfileStore, ProfileError, parse_coaching_profile
 from app.learning.student import TrainingDistillationService
 from app.learning.training_examples import TrainingService
 from app.utils.time import format_timestamp, parse_timestamp
@@ -153,6 +154,31 @@ class TrainingCog(commands.Cog):
         if failures:
             message += "\nНе размечено: " + "; ".join(failures[:5])
         await interaction.followup.send(message, ephemeral=True)
+
+    @app_commands.command(name="train_profile", description="Загрузить универсальный профиль разбора")
+    @app_commands.describe(profile="JSON-файл универсальных правил для режима")
+    async def train_profile(
+        self,
+        interaction: discord.Interaction,
+        profile: discord.Attachment,
+    ) -> None:
+        if not await self._guard(interaction):
+            return
+        if profile.size > 128 * 1024:
+            await interaction.response.send_message("Профиль больше 128 КБ.", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            parsed = parse_coaching_profile(await profile.read())
+            CoachingProfileStore(self.bot.settings.training_profiles_dir).save(parsed)
+        except (ProfileError, OSError, discord.HTTPException) as exc:
+            await interaction.followup.send(str(exc), ephemeral=True)
+            return
+        await interaction.followup.send(
+            f"Профиль «{parsed.title}» сохранён. Он будет автоматически применяться "
+            "к подходящим новым откатам.",
+            ephemeral=True,
+        )
 
     @app_commands.command(name="train_list", description="Список примеров в базе знаний")
     async def train_list(self, interaction: discord.Interaction) -> None:
