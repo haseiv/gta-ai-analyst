@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from collections import Counter
 from dataclasses import dataclass
 
 import cv2
@@ -29,6 +28,32 @@ def _crop(frame: np.ndarray, x1: int, y1: int, x2: int, y2: int) -> np.ndarray:
 
 def _name_key(value: str) -> str:
     return "".join(char for char in value.casefold() if char.isalnum())
+
+
+def _infer_player_name(names: list[str]) -> str | None:
+    """Recover the local name from repeated, sometimes edge-cropped OCR reads."""
+    candidates = [(name, _name_key(name)) for name in names if len(_name_key(name)) >= 4]
+    if not candidates:
+        return None
+    name, _ = max(
+        candidates,
+        key=lambda item: (
+            sum(
+                1
+                for _, other in candidates
+                if item[1] in other or other in item[1]
+            ),
+            len(item[1]),
+        ),
+    )
+    return name
+
+
+def _same_ocr_name(left: str, right: str) -> bool:
+    left_key, right_key = _name_key(left), _name_key(right)
+    if min(len(left_key), len(right_key)) < 4:
+        return False
+    return left_key in right_key or right_key in left_key
 
 
 def _feed_pairs(result: list | None) -> list[tuple[str, str]]:
@@ -87,16 +112,19 @@ class CaptSample:
 
 
 class CaptHudTracker:
-    """Evidence-only observer for the 16:9 Majestic capt HUD.
+    """Evidence-only observer for the 16:9 Majestic combat HUD.
 
     Local kills are identified by the red row outline in the kill feed. An
-    No nickname input or target tracking is required or inferred.
+    MCL scoreboard is optional because deathmatch and other combat modes use
+    the same ammo and kill-feed widgets without that scoreboard. No nickname
+    input or target tracking is required or inferred.
     """
 
     def __init__(self) -> None:
         self._ocr: object | None = None
         self._available = True
         self._recognized_hud = False
+        self._hud_variant: str | None = None
         self._last_brand_check = -5.0
         self._last_sample = -1.0
         self.samples: list[CaptSample] = []
@@ -122,6 +150,7 @@ class CaptHudTracker:
         height, width = frame.shape[:2]
         if width < 1280 or height < 720 or not 1.75 <= width / height <= 1.80:
             return
+        detected_ammo: tuple[int | None, int | None] | None = None
         if not self._recognized_hud:
             if timestamp - self._last_brand_check < 5.0:
                 return
@@ -130,21 +159,27 @@ class CaptHudTracker:
             if ocr is None:
                 return
             corner = _recognized(ocr, _crop(frame, 2300, 15, 2560, 140))
+            detected_ammo = _parse_ammo(_recognized(ocr, _crop(frame, 2410, 155, 2545, 198)))
             scoreboard = _recognized(ocr, _crop(frame, 1080, 20, 1500, 150))
-            self._recognized_hud = (
-                any("majestic" in text.casefold() and conf >= 0.7 for text, conf in corner)
-                and any(text.strip().upper() == "MCL" and conf >= 0.6 for text, conf in corner)
-                and any(TIMER_RE.fullmatch(text.strip()) and conf >= 0.6 for text, conf in scoreboard)
-            )
+            has_brand = any("majestic" in text.casefold() and conf >= 0.7 for text, conf in corner)
+            has_mcl = any(text.strip().upper() == "MCL" and conf >= 0.6 for text, conf in corner)
+            has_timer = any(TIMER_RE.fullmatch(text.strip()) and conf >= 0.6 for text, conf in scoreboard)
+            # Majestic deathmatch has no MCL timer. The brand plus a valid ammo
+            # counter is a stronger general combat-HUD signature than requiring
+            # one particular game mode.
+            self._recognized_hud = has_brand and detected_ammo[0] is not None
             if not self._recognized_hud:
                 return
+            self._hud_variant = "mcl" if has_mcl and has_timer else "deathmatch_or_other"
         if timestamp - self._last_sample < 0.9:
             return
         ocr = self._engine()
         if ocr is None:
             return
         self._last_sample = timestamp
-        ammo, reserve = _parse_ammo(_recognized(ocr, _crop(frame, 2410, 155, 2545, 198)))
+        ammo, reserve = detected_ammo or _parse_ammo(
+            _recognized(ocr, _crop(frame, 2410, 155, 2545, 198))
+        )
         self.samples.append(CaptSample(timestamp, ammo, reserve))
         if ammo is None:
             return
@@ -177,12 +212,27 @@ class CaptHudTracker:
         events: list[GameEvent] = []
         rated: list[dict] = []
         own_kill_times: list[float] = []
-        inferred_names: list[str] = []
+        highlighted_names = [killer for _, killer, _, highlighted in self.feed if highlighted]
+        inferred_player = _infer_player_name(highlighted_names)
+        recent_victims: list[tuple[float, str]] = []
         for index, (timestamp, killer, victim, highlighted) in enumerate(self.feed, 1):
-            if not highlighted:
+            if not highlighted or inferred_player is None or not _same_ocr_name(killer, inferred_player):
                 continue
+            # A feed row remains visible for several sampled frames. OCR often
+            # clips its first letters as it moves, so exact-string dedupe alone
+            # would count one kill two or three times.
+            if any(
+                timestamp - previous_time <= 4.0 and _same_ocr_name(victim, previous_victim)
+                for previous_time, previous_victim in recent_victims
+            ):
+                continue
+            recent_victims = [
+                (previous_time, previous_victim)
+                for previous_time, previous_victim in recent_victims
+                if timestamp - previous_time <= 4.0
+            ]
+            recent_victims.append((timestamp, victim))
             own_kill_times.append(timestamp)
-            inferred_names.append(killer)
             rounds = sum(
                 count for shot_time, count in shot_times if timestamp - 4.0 <= shot_time <= timestamp
             )
@@ -245,10 +295,9 @@ class CaptHudTracker:
                 )
             )
 
-        inferred_player = Counter(inferred_names).most_common(1)[0][0] if inferred_names else None
-
         return {
             "profile": "majestic_capt",
+            "hud_variant": self._hud_variant,
             "available": True,
             "ammo_samples": len(valid_ammo),
             "rounds_observed": sum(count for _, count in shot_times),

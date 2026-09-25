@@ -1,6 +1,13 @@
 import numpy as np
 
-from app.analysis.hud.capt import CaptHudTracker, CaptSample, _feed_pairs, _has_player_highlight, _name_key
+from app.analysis.hud.capt import (
+    CaptHudTracker,
+    CaptSample,
+    _feed_pairs,
+    _has_player_highlight,
+    _infer_player_name,
+    _name_key,
+)
 from app.agents.local_coach import build_local_coach_report
 from app.ai.schemas import PipelinePayload
 from app.bot.embeds.analysis import build_analysis_embeds
@@ -67,6 +74,27 @@ def test_red_feed_highlight_identifies_player_without_name():
     assert events[0].metadata["player_attribution"] == "red_feed_highlight"
 
 
+def test_fragmented_ocr_names_are_deduplicated_and_other_killer_is_rejected():
+    tracker = CaptHudTracker()
+    tracker._recognized_hud = True
+    tracker.samples = [
+        CaptSample(9, 30, 300),
+        CaptSample(10, 20, 290),
+        CaptSample(11, 15, 285),
+        CaptSample(12, 15, 285),
+    ]
+    tracker.feed = [
+        (10, "Hase Extrafaze", "Target Player", True),
+        (11, "ase Extrafaze", "TargetPlayer", True),
+        (12, "Other Player", "Second Target", True),
+    ]
+    summary, events = tracker.finalize()
+    assert _infer_player_name(["Extrafaze", "Hase Extrafaze", "ase Extrafaze"]) == "Hase Extrafaze"
+    assert summary["player_name"] == "Hase Extrafaze"
+    assert summary["player_kills"] == 1
+    assert [event.type for event in events].count("KILL") == 1
+
+
 def test_red_border_detection_uses_wide_row_outline():
     image = np.zeros((255, 360, 3), dtype=np.uint8)
     import cv2
@@ -90,8 +118,8 @@ def test_feed_visible_at_clip_start_is_baseline_not_new_kill():
             self.calls += 1
             sequence = [
                 [([[], [], [], []], "Majestic", 0.9), ([[], [], [], []], "MCL", 0.9)],
-                [([[], [], [], []], "04:25", 0.9)],
                 [([[], [], [], []], "38/357", 0.9)],
+                [([[], [], [], []], "04:25", 0.9)],
                 [
                     ([[35, 27], [137, 27], [137, 45], [35, 45]], "Old Killer", 0.9),
                     ([[221, 27], [328, 27], [328, 45], [221, 45]], "Old Victim", 0.9),
@@ -110,6 +138,29 @@ def test_feed_visible_at_clip_start_is_baseline_not_new_kill():
     tracker.update(0, frame)
     tracker.update(1, frame)
     assert tracker.feed == [(1, "Hase Faze", "Joe Forbes", False)]
+
+
+def test_deathmatch_hud_is_recognized_without_mcl_scoreboard():
+    class FakeOCR:
+        def __init__(self):
+            self.calls = 0
+
+        def __call__(self, _image):
+            self.calls += 1
+            sequence = [
+                [([[], [], [], []], "Majestic", 0.9)],
+                [([[], [], [], []], "35/996", 0.9)],
+                [],
+                [],
+            ]
+            return sequence[self.calls - 1], None
+
+    tracker = CaptHudTracker()
+    tracker._ocr = FakeOCR()
+    tracker.update(0, np.zeros((1440, 2560, 3), dtype=np.uint8))
+    assert tracker._recognized_hud is True
+    assert tracker._hud_variant == "deathmatch_or_other"
+    assert tracker.samples == [CaptSample(0, 35, 996)]
 
 
 def test_other_resolution_is_silent():
@@ -148,7 +199,7 @@ def test_capt_discord_report_shows_limited_score_only():
     assert "не оценка меткости" in scores_field
     assert "Прицел" not in scores_field
     assert "Joe Forbes" in result["coach"]["strengths"][0]
-    capt_field = next(field.value for field in embeds[0].fields if field.name == "🔫 КАПТ / ИНТЕРФЕЙС")
+    capt_field = next(field.value for field in embeds[0].fields if field.name == "🔫 БОЙ / ИНТЕРФЕЙС")
     assert "Твоих киллов по красной рамке: 1" in capt_field
 
 

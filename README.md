@@ -9,7 +9,7 @@ the bot skips YOLO entirely instead of downloading a misleading fallback.
 For the Majestic 1920×1200 HUD layout, OCR can separately report observed ammo
 consumption and increases in the kill counter. This is not an aim score or proof
 that a specific opponent was hit or finished.
-For the tested 16:9 Majestic capt HUD, OCR reads ammo and kill-feed names and
+For the tested 16:9 Majestic combat HUD (including MCL and deathmatch), OCR reads ammo and kill-feed names and
 uses Majestic's red row outline to identify the recording player's kills. It can
 show a **limited, low-confidence score for confirmed finishes** without asking
 for a nickname. It is not an aim, cover, or overall capt skill score.

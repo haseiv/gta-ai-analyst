@@ -144,7 +144,7 @@ def build_analysis_embeds(analysis_id: str, result: dict) -> list[discord.Embed]
     if hud.get("available"):
         if hud.get("profile") == "majestic_capt":
             main.add_field(
-                name="🔫 КАПТ / ИНТЕРФЕЙС",
+            name="🔫 БОЙ / ИНТЕРФЕЙС",
                 value=(
                     f"Патронов израсходовано: {hud['rounds_observed']}\n"
                     f"Прочитано записей ленты: {hud['kill_feed_entries']}\n"

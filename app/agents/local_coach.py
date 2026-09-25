@@ -27,7 +27,7 @@ def build_local_coach_report(payload: PipelinePayload) -> dict:
             player_kills = hud.get("player_kills")
             kill_text = f"OCR подтвердил минимум {player_kills} твоих убийств по красной рамке ленты."
             summary = (
-                f"Капт {duration} прочитан ({frames} кадров). По интерфейсу Majestic "
+                f"Боевой ролик Majestic {duration} прочитан ({frames} кадров). По интерфейсу "
                 f"замечен расход {hud['rounds_observed']} патронов. {kill_text} "
                 "Траекторию прицела и отдельные попадания бот пока не измеряет."
             )

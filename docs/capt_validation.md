@@ -29,3 +29,17 @@ kill-feed entries: `Hase Faze → Joe Forbes` at 00:57 and
 frame. The two limited encounter scores average to 7.8/10; this is still not
 a score for the full capt. OCR may miss other entries, so counts are lower
 bounds rather than a complete match record.
+
+## Deathmatch HUD variant
+
+The user supplied a separate 05:23 Majestic Deathmatch recording and labelled
+its tracking as good. This mode has the Majestic logo, ammo counter and the same
+outlined personal kill-feed rows, but no MCL scoreboard or top-centre timer.
+Recognition must therefore use the brand plus a valid ammo counter; the MCL
+widgets only classify the variant and are not required.
+
+On the full Deathmatch source, the reader observed 822 rounds and conservatively
+confirmed 39 distinct personal kill-feed rows after merging OCR fragments such
+as `Hase Extrafaze`, `ase Extrafaze` and `Extrafaze`. The recording itself is not
+committed. The human `good tracking` label is a future training reference, not
+permission for the current HUD heuristic to issue an aim-tracking score.
